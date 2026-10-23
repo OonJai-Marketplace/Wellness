@@ -1,6 +1,6 @@
 /* App-shell updates are separate from the browser/OS installed-icon refresh. */
 (()=>{
- const VERSION='0.2.0';
+ const VERSION='0.2.1';
  let registration, pendingVersion, checking=false;
  const notice=document.createElement('div');
  notice.id='appUpdateNotice';notice.hidden=true;notice.setAttribute('role','status');
