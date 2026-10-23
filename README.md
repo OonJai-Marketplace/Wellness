@@ -16,3 +16,8 @@ This is a UI prototype. Do not enter real health data or real passwords. Demo au
 
 ## Future implementation
 Date of birth/estimated age, outreach configuration, full translated interface, referrals, attachments, program enrollment and supply tracking are future extensions. Current localization accepts Lao/Thai text and provides local-script plus Latin-script name fields.
+
+## Publishing logo and app updates
+Keep the manifest URL, app id, start_url and scope stable so existing installations retain their identity. For a logo change, regenerate the Oon Jai icon PNGs from the source logo, increment the `?v=` brand revision in manifest icons, favicon, apple-touch-icon and service-worker precache URLs. Increment the service-worker cache version. For every app release, update both version.json and VERSION in updates.js. Deploy these changes together.
+
+The app checks the release on launch, foreground return, reconnection and every five visible minutes. A new release offers Update now; it never automatically reloads an open form or clears saved demo data. Settings has a manual check. This refreshes app content, not an OS launcher icon directly: Android Chrome handles installed icon updates on its own schedule/confirmation flow; some platforms may require re-adding the home-screen shortcut.
