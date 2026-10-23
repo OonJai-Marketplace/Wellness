@@ -1,4 +1,4 @@
-const CACHE='oonjai-wellness-v3';
+const CACHE='oonjai-wellness-v4';
 const FILES=['./','./index.html','./style.css','./app.js','./updates.js','./manifest.webmanifest','./assets/logo.png','./assets/oonjai-favicon.png?v=oonjai-1','./assets/oonjai-192.png?v=oonjai-1','./assets/oonjai-512.png?v=oonjai-1','./assets/oonjai-maskable.png?v=oonjai-1'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(FILES)).then(()=>self.skipWaiting()));});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('oonjai-wellness-')&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));});
