@@ -1,0 +1,25 @@
+import assert from 'node:assert/strict';import fs from 'node:fs';import {stripTypeScriptTypes} from 'node:module';import * as core from '../core.js';
+Object.assign(globalThis,core);
+const USER='11111111-1111-4111-a111-111111111111',MISSION='22222222-2222-4222-a222-222222222222',EVENT='33333333-3333-4333-a333-333333333333';let joined=false,disabled=false,temporary=false,capturedCreate=null,dbOps=[],handler;
+const member=()=>({id:USER,email:'qa@example.invalid',name:'QA User',role:'volunteer',status:disabled?'disabled':'active',initials:'QA',temporary_password:temporary});
+class Query{constructor(table){this.table=table;this.filters=[];this.singleRow=false;}select(){return this}order(){return this}range(){return this}limit(){return this}or(){return this}is(){return this}in(){return this}eq(k,v){this.filters.push([k,v]);return this}maybeSingle(){this.singleRow=true;return this}single(){this.singleRow=true;return this}insert(v){dbOps.push({table:this.table,v});return this}update(v){dbOps.push({table:this.table,v});return this}upsert(v){dbOps.push({table:this.table,v});return this}then(resolve){let data=[];if(this.table==='wellness_members')data=[member()];if(this.table==='wellness_events')data=[{id:EVENT,mission_id:MISSION,name:'QA day',approval:'draft'}];if(this.table==='wellness_mission_members')data=joined?[{mission_id:MISSION,user_id:USER,role:'volunteer'}]:[];if(this.table==='wellness_missions')data=joined?[{id:MISSION,name:'QA mission'}]:[];if(this.table==='wellness_records')data=[{event_id:EVENT,guest_id:'only-in-joined-event',station:'registration',data:{name:'Fictional'}}];if(this.table==='wellness_devices')data=[];resolve({data:this.singleRow?data[0]||null:data,error:null});}}
+const auth={getUser:async token=>token==='valid'?{data:{user:{id:USER,email:'qa@example.invalid',user_metadata:{role:'admin'}}},error:null}:{data:{},error:{message:'bad token'}},resend:async()=>({data:{},error:null}),admin:{createUser:async d=>(capturedCreate=d,{data:{user:{id:USER}},error:null}),updateUserById:async()=>({data:{},error:null})}};
+globalThis.__testCreateClient=()=>({auth,from:t=>new Query(t),rpc:async(name,args)=>{if(name==='wellness_rate_guard')return {data:true,error:null};if(name==='wellness_join'){joined=true;return {data:MISSION,error:null};}return {data:{status:'saved'},error:null};}});
+globalThis.Deno={env:{get:()=>''},serve:fn=>handler=fn};
+let source=fs.readFileSync(new URL('../backend/index.ts',import.meta.url),'utf8');source=source.replace(/import \{createClient\}[^\n]+\n/,'const createClient=globalThis.__testCreateClient;\n').replace(/import \{STATIONS[^\n]+\n/,'const {STATIONS,validID,validateData,strongPassword,summarize}=globalThis;\n');await import('data:text/javascript;base64,'+Buffer.from(stripTypeScriptTypes(source)).toString('base64'));
+const call=async(action,data={},token='valid')=>{const response=await handler(new Request('https://test.invalid',{method:'POST',headers:{Authorization:'Bearer '+token,'content-type':'application/json'},body:JSON.stringify({action,...data})}));return {status:response.status,body:await response.json()};};
+assert.equal((await call('bootstrap',{},'bad')).status,401);
+assert.equal((await call('snapshot',{event_id:EVENT})).status,400);
+assert.equal((await call('mission',{mission:{}})).status,403);
+assert.equal((await call('member',{id:USER,status:'active'})).status,403);
+assert.equal((await call('grade',{grade:1.25})).status,403);
+assert.equal((await call('device',{id:USER})).status,200); // creates only the caller's phone
+assert.equal((await call('join',{code:'QA-CODE'})).status,200);
+const snapshot=await call('snapshot',{event_id:EVENT});assert.equal(snapshot.status,200);assert.equal(snapshot.body.records.length,1);assert.equal(snapshot.body.members,undefined);
+const boot=await call('bootstrap');assert.equal(boot.body.member.role,'volunteer');assert.deepEqual(boot.body.members,[]);assert.equal(boot.body.totals,null);assert.deepEqual(boot.body.alerts,[]);
+assert.equal((await call('submit',{operation:{}})).status,400);
+assert.equal((await call('approve',{event_id:EVENT,approved:true,phones_confirmed:true})).status,400);
+disabled=true;assert.equal((await call('snapshot',{event_id:EVENT})).status,403);disabled=false;
+temporary=true;assert.equal((await call('snapshot',{event_id:EVENT})).status,403);temporary=false;
+const signup=await call('signup',{email:'new@example.invalid',name:'Test Member',password:'Temporary!Test2026',role:'admin'},'bad');assert.equal(signup.status,200);assert.equal(capturedCreate.email_confirm,false);assert.deepEqual(capturedCreate.app_metadata,{wellness_only:true});assert.equal(dbOps.at(-1).v.role,undefined);assert.equal(dbOps.at(-1).v.status,'active');
+console.log('PASS: real gateway handler rejects anonymous, unjoined, disabled, temporary-password and privileged requests; joins full mission; ignores user-editable role; creates unverified Wellness-only signup.');

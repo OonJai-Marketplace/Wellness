@@ -1,6 +1,6 @@
 /* App-shell updates are separate from the browser/OS installed-icon refresh. */
 (()=>{
- const VERSION='0.2.1';
+ const VERSION='1.0.0';
  let registration, pendingVersion, checking=false;
  const notice=document.createElement('div');
  notice.id='appUpdateNotice';notice.hidden=true;notice.setAttribute('role','status');
@@ -23,7 +23,7 @@
   finally{checking=false;}
  }
  notice.querySelector('button').onclick=async()=>{
-  if(document.querySelector('dialog[open]')){status('Save or close your open form before updating.');alert('Save or close your open form first. Your saved demo records will remain.');return;}
+  if(document.querySelector('dialog[open]')){status('Save or close your open form before updating.');alert('Save or close your open form first. Your saved records will remain.');return;}
   // Do not clear storage or reload automatically while someone is editing.
   try{if(registration)await registration.update();}catch{}
   window.location.reload();

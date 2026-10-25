@@ -1,5 +1,10 @@
-const CACHE='oonjai-wellness-v5';
-const FILES=['./','./index.html','./style.css?v=0.2.1','./app.js?v=0.2.1','./updates.js?v=0.2.1','./manifest.webmanifest','./assets/logo.png','./assets/oonjai-favicon.png?v=oonjai-1','./assets/oonjai-192.png?v=oonjai-1','./assets/oonjai-512.png?v=oonjai-1','./assets/oonjai-maskable.png?v=oonjai-1'];
-self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(FILES)).then(()=>self.skipWaiting()));});
-self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('oonjai-wellness-')&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));});
-self.addEventListener('fetch',e=>{if(new URL(e.request.url).pathname.endsWith('/version.json'))return;if(e.request.method!=='GET'||new URL(e.request.url).origin!==self.location.origin)return;e.respondWith(fetch(e.request,{cache:'no-cache'}).then(response=>{if(response.ok){const copy=response.clone();caches.open(CACHE).then(c=>c.put(e.request,copy));}return response;}).catch(()=>caches.match(e.request).then(c=>c||(e.request.mode==='navigate'?caches.match('./index.html'):Response.error()))));});
+const CACHE='oonjai-wellness-v6';
+const FILES=['./','./index.html','./style.css?v=1.0.0','./app.js?v=1.0.0','./core.js?v=1.0.0','./vault.js?v=1.0.0','./config.js?v=1.0.0','./vendor/supabase.js','./updates.js?v=1.0.0','./manifest.webmanifest','./assets/logo.png','./assets/oonjai-favicon.png?v=oonjai-1','./assets/oonjai-192.png?v=oonjai-1','./assets/oonjai-512.png?v=oonjai-1','./assets/oonjai-maskable.png?v=oonjai-1'];
+self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(FILES)).then(()=>self.skipWaiting())));
+self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('oonjai-wellness-')&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
+self.addEventListener('fetch',e=>{
+ const url=new URL(e.request.url);if(e.request.method!=='GET'||url.origin!==self.location.origin||url.pathname.endsWith('/version.json'))return;
+ // Only public app-shell files are cached. Auth/API traffic and health data never enter the service-worker cache.
+ const known=FILES.some(f=>new URL(f,self.location.href).pathname===url.pathname);if(!known)return;
+ e.respondWith(fetch(e.request,{cache:'no-cache'}).then(r=>{if(r.ok)caches.open(CACHE).then(c=>c.put(e.request,r.clone()));return r;}).catch(()=>caches.match(e.request).then(r=>r||(e.request.mode==='navigate'?caches.match('./index.html'):Response.error()))));
+});
