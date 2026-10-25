@@ -20,7 +20,7 @@ begin
    if i<>8 then
     insert into wellness_records(event_id,guest_id,station,data,revision,author,device_id) values(e,gid,'registration',jsonb_build_object('name',person,'local',case when i%2=0 then 'ຕົວຢ່າງ' else '' end,'age',(20+i*5)::text,'sex',case when i%2=0 then 'Female' else 'Male' end,'country','Laos','province','Vientiane','village','Demo village '||i,'phone','','language','Lao','consent','yes','notes','Fictional training example.'),gen_random_uuid(),owner_id,device_id) on conflict do nothing;
    end if;
-   insert into wellness_records(event_id,guest_id,station,data,revision,author,device_id) values(e,gid,'measurements',jsonb_build_object('height',(150+i*3)::text,'weight',(48+i*4)::text,'notes','Sample measurements'),gen_random_uuid(),owner_id,device_id) on conflict do nothing;
+   insert into wellness_records(event_id,guest_id,station,data,revision,author,device_id) values(e,gid,'measurements',jsonb_build_object('height',(150+i*3)::text,'weight',(48+i*4)::text,'waist',(65+i*3)::text,'notes','Sample measurements'),gen_random_uuid(),owner_id,device_id) on conflict do nothing;
    if i<=6 then
     insert into wellness_records(event_id,guest_id,station,data,revision,author,device_id) values(e,gid,'glasses',jsonb_build_object('grade',(array['+1.00','+1.50','+2.00','+2.50','+3.00','+1.50'])[i],'quantity',case when i=6 then '0' else '1' end,'status',case when i=6 then 'Referred' else 'Provided' end,'notes','Fictional reading glasses service'),gen_random_uuid(),owner_id,device_id) on conflict do nothing;
    end if;

@@ -59,15 +59,6 @@ do $$ declare t text; begin
 end $$;
 grant usage,select on sequence public.wellness_devices_code_seq to service_role;
 
--- A trusted server-created Wellness identity must not automatically become an Accounting user.
-create or replace function public.handle_new_user() returns trigger language plpgsql security definer set search_path=public as $$
-begin
- if new.raw_app_meta_data->>'wellness_only' = 'true' then return new; end if;
- insert into public.profiles(id,email,full_name)
- values(new.id,coalesce(new.email,''),coalesce(new.raw_user_meta_data->>'full_name','')) on conflict(id) do nothing;
- return new;
-end $$;
-
 -- Service-only, atomic compare-and-set and idempotency. The gateway validates fields and actor permissions too.
 create or replace function public.wellness_apply(p_actor uuid, p_operation jsonb)
 returns jsonb language plpgsql security invoker set search_path=public,pg_temp as $$
@@ -122,7 +113,7 @@ end $$;
 revoke all on function public.wellness_rate_limit(text) from public,anon,authenticated;
 grant execute on function public.wellness_rate_limit(text) to service_role;
 
--- Existing account passwords and Accounting roles are preserved. Only owners start as Wellness admins.
+-- Existing account passwords and Restaurant roles are preserved. Only owners start as Wellness admins.
 insert into wellness_members(id,email,name,role,status)
 select id,email,full_name,case when role='admin' then 'admin' else 'volunteer' end,
  case when role='admin' then 'active' else 'pending' end
