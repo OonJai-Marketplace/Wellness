@@ -1,5 +1,5 @@
-const CACHE='oonjai-wellness-v8';
-const FILES=['./','./index.html','./style.css?v=1.0.2','./app.js?v=1.0.2','./core.js?v=1.0.2','./vault.js?v=1.0.2','./config.js?v=1.0.2','./vendor/supabase.js','./updates.js?v=1.0.2','./manifest.webmanifest','./assets/logo.png','./assets/oonjai-favicon.png?v=oonjai-1','./assets/oonjai-192.png?v=oonjai-1','./assets/oonjai-512.png?v=oonjai-1','./assets/oonjai-maskable.png?v=oonjai-1'];
+const CACHE='oonjai-wellness-v9';
+const FILES=['./','./index.html','./style.css?v=1.0.3','./app.js?v=1.0.3','./core.js?v=1.0.3','./navigation.js?v=1.0.3','./vault.js?v=1.0.3','./config.js?v=1.0.3','./vendor/supabase.js','./updates.js?v=1.0.3','./manifest.webmanifest','./assets/logo.png','./assets/oonjai-favicon.png?v=oonjai-1','./assets/oonjai-192.png?v=oonjai-1','./assets/oonjai-512.png?v=oonjai-1','./assets/oonjai-maskable.png?v=oonjai-1'];
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(FILES)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('oonjai-wellness-')&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
 self.addEventListener('fetch',e=>{

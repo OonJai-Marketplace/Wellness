@@ -1,4 +1,4 @@
-# Oon Jai Wellness · 1.0.2
+# Oon Jai Wellness · 1.0.3
 
 Installable, phone-first event workspace connected to the Restaurant Supabase project (`dfrulsnparrouuzjbtih`). Existing Restaurant passwords are preserved. Wellness data and permissions are separate.
 
@@ -12,6 +12,16 @@ Installable, phone-first event workspace connected to the Restaurant Supabase pr
 6. Each station saves locally even if registration has not arrived. Sync joins records by **session + guest ID + station**. The same ID on another date or in another location does not mix the daily records.
 7. Search registration records by name, local name, phone, village or ID to recover a lost slip. Offline recovery requires the registration to already be saved on that phone. Devices cannot retrieve one another’s unsynced data without connectivity.
 8. Viewing historical sessions is unrestricted within joined missions. Saving into a past/future session shows a date/location warning and requires acknowledgment.
+
+## Navigation update 1.0.3
+
+Phone navigation has five destinations: **Home, Missions, Guest form, Records, More**. Desktop navigation groups the same destinations into Get started, This day, Manage, and Help & phone. More provides role-appropriate reports, inventory and settings instead of hiding navigation in Settings.
+
+The daily workspace has a mission selector followed by a date/location selector limited to that mission. Explicit choices are stored in the encrypted phone vault and restored on the next unlock. Empty missions never inherit another mission’s session. When no valid choice exists, prefer an open current day, then the next scheduled day or most recent past day. A newly selected day is queued for refresh if a sync is already running.
+
+Home prioritizes registration and entering an existing ID. All daily pages have direct links to the guest form, records, daily report and glasses stock. Completed guest sections expand on demand; unrecorded station actions stay visible. Settings contains account, phone and notification controls.
+
+Verification for this release: navigation/core/gateway/push Node suites passed; managed browser QA used fictional fixtures on desktop, 390px and 320px phone layouts. Checked mission and day selection across reloads, empty missions, registration, guest lookup, BMI, simulated offline queue/reconnect, reports, 17 stock grades and volunteer-only menus. The managed HTTP preview required mocked storage/auth; this release did not repeat the secure-context encrypted offline browser suite or physical multi-phone testing. The browser regression suite was extended for mission selection and More navigation for execution in an appropriate secure/local environment.
 
 ## Daily review, conflicts and main totals
 
@@ -49,6 +59,7 @@ Password requirements match Accounting: 12–128 characters, uppercase/lowercase
 
 Sample mission code: **DEMO-2026**. Three daily sessions contain 24 fictional guests, 111 station records, 9 appointments and 4 recipes. Three guest IDs intentionally await registration. Example stock starts at 20 pairs per grade per day. Samples are visibly marked and excluded from main totals.
 
+- `node tests/navigation.mjs`: mission/day isolation, remembered choices, date/location boundaries, empty missions and revoked access.
 - `node tests/core.mjs`: 10,000 distinct IDs and check characters, BMI, merging/conflicts, validation and password rules.
 - `node tests/gateway.mjs`: executes the actual Edge handler with mocked dependencies; tests signup role isolation, anonymous/unjoined/disabled/temporary-password rejection and mission-only access.
 - `node tests/browser.cjs`: mocked Auth/gateway browser test; phone/desktop, airplane-mode shell reload, encrypted records, ID recovery, multiple-tab counters, sync, grade dropdown, consultation and save-only date warning. The local Chromium executable is configured in the test.
