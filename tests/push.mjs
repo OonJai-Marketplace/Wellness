@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';import fs from 'node:fs';import {stripTypeScriptTypes} from 'node:module';import {createRequire} from 'node:module';
+const require=createRequire(new URL('../backend/package.json',import.meta.url));globalThis.__pushLib=require('web-push');
+let source=fs.readFileSync(new URL('../backend/push.ts',import.meta.url),'utf8').replace(/import webpush[^\n]+\n/,'const webpush=globalThis.__pushLib;\n');const {pushAction,deliverPush}=await import('data:text/javascript;base64,'+Buffer.from(stripTypeScriptTypes(source)+'\n//# sourceURL=wellness-push-test.js').toString('base64'));
+const user={id:'qa',role:'admin',status:'active',temporary_password:false};let config=null,subscriptions=[],jobs=[],requests=0;
+class Q{constructor(table){this.table=table;this.filters=[]}select(){return this}eq(k,v){this.filters.push([k,v]);return this}maybeSingle(){this.singleRow=true;return this}single(){this.singleRow=true;return this}upsert(v){this.value=v;return this}update(v){this.value=v;return this}delete(){this.deleted=true;return this}then(resolve){let data=[];if(this.table==='wellness_push_config'){if(this.value)config=this.value;data=config?[config]:[];}if(this.table==='wellness_push_subscriptions'){if(this.value)subscriptions=[{id:'s',...this.value}];if(this.deleted)subscriptions=[];data=subscriptions.filter(s=>this.filters.every(([k,v])=>k.startsWith('wellness_members.')||s[k]===v));}if(this.table==='wellness_push_jobs'&&this.value)jobs=[];resolve({data:this.singleRow?data[0]||null:data,error:null});}}
+const db={from:t=>new Q(t),rpc:async()=>({data:jobs,error:null})};
+await assert.rejects(pushAction(db,{...user,role:'volunteer'},{action:'push-key'}));
+for(const endpoint of ['http://fcm.googleapis.com/test','https://127.0.0.1/','https://fcm.googleapis.com@127.0.0.1/','https://fcm.googleapis.com:8443/test'])await assert.rejects(pushAction(db,user,{action:'push-subscribe',subscription:{endpoint,keys:{}}}));
+const key=await pushAction(db,user,{action:'push-key'});assert(key.publicKey);assert.equal(key.private_key,undefined);
+const curve=require('node:crypto').createECDH('prime256v1');curve.generateKeys();const sub={endpoint:'https://fcm.googleapis.com/fcm/send/fictional-test',keys:{p256dh:curve.getPublicKey().toString('base64url'),auth:require('node:crypto').randomBytes(16).toString('base64url')}};
+await pushAction(db,user,{action:'push-subscribe',subscription:sub});
+globalThis.fetch=async(url,options)=>{assert.equal(url,sub.endpoint);assert.equal(options.redirect,'error');assert(options.headers.Authorization||options.headers.authorization);assert(options.body.length>0);requests++;return new Response('',{status:201});};
+await pushAction(db,user,{action:'push-test',endpoint:sub.endpoint});assert.equal(requests,1);jobs=[{id:'fictional-job'}];await deliverPush(db);assert.equal(requests,2);assert.equal(jobs.length,0);
+await pushAction(db,user,{action:'push-unsubscribe',endpoint:sub.endpoint});assert.equal(subscriptions.length,0);
+console.log('PASS: administrator-only notifications, restricted destinations, private-key isolation, real VAPID signing/encryption, delivery and unsubscribe');

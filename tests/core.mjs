@@ -8,3 +8,11 @@ assert.equal(mergeRecords([m],[{...m,id:'new',data:{weight:'70'}}]).length,1);as
 assert.throws(()=>validateData('registration',{name:'Sample'}));assert.throws(()=>validateData('measurements',{height:'0',weight:'68'}));assert.throws(()=>validateData('assessment',{systolic:'120'}));assert.throws(()=>validateData('dental',{status:'Completed',role:'admin'}));assert.equal(validateData('glasses',{status:'Assessed only',quantity:'1'}).quantity,'0');
 assert(strongPassword('Temporary!Test2026'));assert(!strongPassword('volunteer@example.com'));
 console.log('PASS: 10,000 unique guest IDs, checksums, BMI, out-of-order projection, conflicts, field validation, password policy');
+const {aggregateDays,pendingDays}=await import('../core.js');
+assert.equal(validateData('glasses',{status:'Assessed only',quantity:'0'}).quantity,'0');
+assert.throws(()=>validateData('assessment',{sugarUnit:'mg/dL',referral:'No'}));
+assert.equal(summarize([r,{...r,event_id:'other'}]).visits,2);
+const metrics=summarize([r]);const days=[{id:'a',mission_id:'m',starts:'2027-03-22',location:'A',metrics},{id:'b',mission_id:'m',starts:'2027-03-23',location:'A',metrics},{id:'c',mission_id:'other',starts:'2027-03-22',location:'B',metrics}];
+assert.equal(aggregateDays(days,{mission:'m',from:'2027-03-23'}).total.registrations,1);assert.equal(aggregateDays(days,{location:'A'}).total.visits,2);assert.equal(aggregateDays(days,{from:'2027-03-23',to:'2027-03-22'}).days.length,0);
+assert.deepEqual(pendingDays([{event_id:'a',status:'pending'},{event_id:'a',status:'error'},{event_id:'b',status:'conflict'}],['previous'],'b'),[{event_id:'previous',pending:0},{event_id:'b',pending:0},{event_id:'a',pending:2}]);
+console.log('PASS: assessment validation, zero issued glasses, separate daily visits, combined report filters, and pending counts across all worked sessions');

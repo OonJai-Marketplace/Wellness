@@ -1,1 +1,1 @@
-window.WELLNESS_CONFIG={url:'https://dfrulsnparrouuzjbtih.supabase.co',key:'sb_publishable_quyTKmIUS7NUWpN6tqWrhw_bWIZj1tm',recovery:'https://oonjai-marketplace.github.io/Restaurant-Back-Office/?password-recovery=1'};
+window.WELLNESS_CONFIG={url:'https://dfrulsnparrouuzjbtih.supabase.co',key:'sb_publishable_quyTKmIUS7NUWpN6tqWrhw_bWIZj1tm',recovery:'https://oonjai-marketplace.github.io/Wellness/'};

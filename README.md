@@ -1,4 +1,4 @@
-# Oon Jai Wellness · 1.0.1
+# Oon Jai Wellness · 1.0.2
 
 Installable, phone-first event workspace connected to the Restaurant Supabase project (`dfrulsnparrouuzjbtih`). Existing Restaurant passwords are preserved. Wellness data and permissions are separate.
 
@@ -15,9 +15,9 @@ Installable, phone-first event workspace connected to the Restaurant Supabase pr
 
 ## Daily review, conflicts and main totals
 
-All joined volunteers can view their mission’s connected daily guest records, progress and reports. New records are create-only for volunteers. A different submission for an occupied station becomes a conflict rather than overwriting the earlier record. Administrators see a shared in-app alert, refreshed every 30 seconds while open, and can compare submissions, correct the retained record, then mark the conflict reviewed. These are in-app alerts, not email/push notifications.
+All joined volunteers can view their mission’s connected daily guest records, progress and reports. New records are create-only for volunteers. A different submission for an occupied station becomes a conflict rather than overwriting the earlier record. Administrators see a shared in-app alert, refreshed every 30 seconds while open, and can compare submissions, correct the retained record, then mark the conflict reviewed. Administrators can also opt into browser/phone push notifications in Settings. Notifications contain no guest details. The server retries queued notification jobs when new conflicts arrive or administrators refresh; in-app conflict records remain authoritative. Email conflict alerts are not sent.
 
-Daily reports count registrations, glasses recipients and pairs, dental cleanings, consultation, assessment, referrals and people receiving both glasses and dental services. A service bar chart and CSV export are available. Main totals include only **approved real days**, excluding samples and draft days.
+Daily reports count registrations, glasses recipients and pairs, dental cleanings, consultation, assessment, referrals and people receiving both glasses and dental services. A service bar chart and CSV export are available. Main totals include only **approved real days**, excluding samples and draft days. Mission analysis adds filtered service, daily and location charts, visit counts and CSV export. A clearly marked fictional preview demonstrates these graphs without adding samples to official totals.
 
 Approval requires no unresolved conflicts, no orphan station records awaiting registration, no known pending phone uploads and no negative glasses stock. The administrator must explicitly confirm every team phone has synced: a never-connected/offline phone cannot report its pending work. Approval locks that day; reopening removes it from main totals until approved again. All corrections and approvals have server-side audit records.
 
@@ -29,7 +29,7 @@ The catalog starts at +1.00 through +5.00 in +0.25 increments (17 grades); admin
 
 Self-signup creates an unverified Wellness-only Supabase identity; it does not acquire a Restaurant profile. Supabase sends verification. Existing Restaurant identities use their current password. Admin-created volunteers can start with email as temporary password, must verify email, then must choose a strong password before any event data is returned.
 
-Forgot password uses the existing Restaurant recovery page for the shared Supabase identity. Return to Wellness after resetting. Verification emails may use the project’s existing default redirect; users are instructed to return to Wellness after confirming. SMTP delivery and Supabase email limits apply. Deployment tests did not send verification/recovery mail to real volunteers.
+Forgot password returns directly to Wellness, where the new password is set for the shared Supabase identity. Older recovery emails retain their original redirect; request a fresh link after updating. Verification emails may use the project’s existing default redirect; users are instructed to return to Wellness after confirming. SMTP delivery and Supabase email limits apply. Deployment tests did not send verification/recovery mail to real volunteers.
 
 Password requirements match Accounting: 12–128 characters, uppercase/lowercase, number, symbol and no surrounding spaces. Changing a shared Restaurant password affects Restaurant too; Accounting uses a separate project. A password reset on another phone requires the old password to unlock this phone’s unsynced encrypted data before rekeying; failed unlocks never discard saved records.
 
@@ -41,7 +41,7 @@ Password requirements match Accounting: 12–128 characters, uppercase/lowercase
 - UUID operation receipts make retries idempotent. Independent station records prevent one station overwriting another. Conflicts preserve the incoming payload. Server-side compare-and-set protects admin corrections.
 - Reconnection, foreground return, Sync now and a 30-second visible-app timer sync the outbox. The app must be open; closed-app background sync is not promised.
 - Offline permission changes take effect after reconnection or the seven-day lease expires. Server access checks use current database membership, not user-editable metadata.
-- All 15 Wellness tables have RLS enabled and browser privileges revoked. No health data is directly exposed through the Data API. The authenticated gateway checks current account and mission membership. Mutation RPCs are service-role-only. RLS-with-no-policy advisories are intentional deny-all defense for these gateway-only tables.
+- All Wellness tables have RLS enabled and browser privileges revoked. No health data is directly exposed through the Data API. The authenticated gateway checks current account and mission membership. Mutation RPCs are service-role-only. RLS-with-no-policy advisories are intentional deny-all defense for these gateway-only tables.
 - Only the publishable key is shipped. The service key stays in the function’s hosted environment. Existing Restaurant profiles, roles and passwords are not reset.
 - Original design-preview localStorage remains untouched and is not uploaded automatically.
 
@@ -57,3 +57,18 @@ Sample mission code: **DEMO-2026**. Three daily sessions contain 24 fictional gu
 The static root is served by GitHub Pages. `backend/index.ts` is the deployed `wellness-api` function. SQL files in `backend/` document the applied schema changes; do not rerun base creation files against the live database. `sample-data.sql` is an idempotent sample insert for the final schema. `core.js` and `backend/core.js` must match. Vendored Supabase JS 2.117.2 and its license allow startup without a CDN.
 
 Wellness moved from the initially configured Accounting project to Restaurant in 1.0.1. The Accounting Wellness endpoint was retired and its sample-only Wellness tables removed. Authentication sessions and encrypted vault namespaces are scoped to Restaurant. The Restaurant isolation trigger handles trusted app metadata on insert and update because GoTrue can populate it after initial user creation.
+
+## Reliability update 1.0.2
+
+- Combined mission analysis, date/location filters, CSV export and a separate fictional-data preview.
+- Volunteer guide with ID/BMI practice and an encrypted local readiness checklist before joining a mission.
+- Phone pending counts refresh for all worked sessions; snapshots stay attached to the session requested even if the selected day changes during a request. Connection errors no longer report Connected.
+- Zero-pair assessed-only glasses records are valid; empty health assessments are rejected.
+- External password resets have a previous-password unlock flow that preserves unsynced entries and re-encrypts the vault.
+- Atomic mission, session and appointment edits reject stale revisions. Recorded sessions cannot be moved between missions/dates/locations, approved days freeze appointments, and conflict resolution has an idempotent audit entry.
+- Optional Web Push for administrators, with server-only VAPID keys and subscriptions. Opt in and send a test from Settings. Actual delivery depends on the phone/browser and notification permissions.
+- Live rollback tests in `tests/reliability.sql` verify concurrency boundaries and notification-storage isolation. Browser tests cover combined charts, practice and password-reset recovery.
+
+Password resets for real accounts are performed through Supabase Auth administration and are never stored in repository files. No software can be guaranteed bug-free; physical-phone notification delivery and verification/recovery email delivery still require operational testing.
+
+Recovery verification: a disposable confirmed account completed a real Supabase recovery-token exchange, Wellness password update and fresh sign-in. Supabase accepted the Wellness redirect. No real-user password was changed during that test, and the disposable account was deleted. Browser tests also cover the recovery-link callback and new-password form.
