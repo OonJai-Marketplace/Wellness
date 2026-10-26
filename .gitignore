@@ -1,3 +1,4 @@
 dist/
 .openai/
 node_modules/
+supabase/.temp/

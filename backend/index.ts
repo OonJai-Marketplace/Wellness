@@ -1,6 +1,6 @@
 import {createClient} from 'npm:@supabase/supabase-js@2.117.2';
 import {pushAction,queuePush,deliverPush} from './push.ts';
-import {STATIONS,validID,validateData,strongPassword,summarize} from './core.js';
+import {STATIONS,validID,validateData,strongPassword,summarize,regularDayID,stockLocation} from './core.js';
 const url=Deno.env.get('SUPABASE_URL')!, key=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const admin=createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}});
 const origin='https://oonjai-marketplace.github.io';
@@ -64,17 +64,28 @@ Deno.serve(async(req)=>{
   const memberships=unwrap(await admin.from('wellness_mission_members').select('*').eq('user_id',m.id));
   const ids=memberships.map((a:any)=>a.mission_id);
   const missions=m.role==='admin'?unwrap(await admin.from('wellness_missions').select('*').order('created_at',{ascending:false})):ids.length?unwrap(await admin.from('wellness_missions').select('*').in('id',ids)):[];
-  const events=m.role==='admin'?unwrap(await admin.from('wellness_events').select('*').order('starts',{ascending:false})):ids.length?unwrap(await admin.from('wellness_events').select('*').in('mission_id',ids).order('starts',{ascending:false})):[];
+  const eventRows=m.role==='admin'?unwrap(await admin.from('wellness_events').select('*').order('starts',{ascending:false})):ids.length?unwrap(await admin.from('wellness_events').select('*').in('mission_id',ids).order('starts',{ascending:false})):[];
+  const events=eventRows.map((e:any)=>({...e,kind:missions.find((m:any)=>m.id===e.mission_id)?.kind||'large'}));
   const members=m.role==='admin'?unwrap(await admin.from('wellness_members').select('*').order('created_at')):[];
-  const totals=m.role==='admin'?await all(()=>admin.from('wellness_records').select('event_id,guest_id,station,data').order('event_id').order('guest_id').order('station')):[];
+  const eventIDs=events.map((e:any)=>e.id);
+  const totals=eventIDs.length?await all(()=>admin.from('wellness_records').select('event_id,guest_id,station,data,updated_at').in('event_id',eventIDs).order('event_id').order('guest_id').order('station')):[];
   const approved=new Set(events.filter((e:any)=>e.approval==='approved'&&!e.sample).map((e:any)=>e.id));
   const byDay=new Map();for(const r of totals){if(!byDay.has(r.event_id))byDay.set(r.event_id,[]);byDay.get(r.event_id).push(r);}
-  const dailyMetrics=m.role==='admin'?events.map((e:any)=>({id:e.id,mission_id:e.mission_id,starts:e.starts,location:e.location,approval:e.approval,sample:e.sample,metrics:summarize(byDay.get(e.id)||[])})):[];
+  const dailyMetrics=events.map((e:any)=>({...e,metrics:summarize(byDay.get(e.id)||[])}));
+  const directory=totals.filter((r:any)=>r.station==='registration');
+  const allLocations=await all(()=>admin.from('wellness_inventory_locations').select('*').order('id'));
+  const locations=allLocations.filter((l:any)=>m.role==='admin'||ids.includes(l.mission_id));
+  const locationIDs=locations.map((l:any)=>l.id);
+  const balances=locationIDs.length?await all(()=>admin.from('wellness_inventory_balances').select('*').in('location_id',locationIDs).order('location_id').order('grade')):[];
+  const issues=totals.filter((r:any)=>r.station==='glasses'&&r.data.status==='Provided').map((r:any)=>({event_id:r.event_id,guest_id:r.guest_id,location_id:stockLocation(events.find((e:any)=>e.id===r.event_id)),grade:r.data.grade,quantity:Number(r.data.quantity)||0,updated_at:r.updated_at}));
+  const moves=locationIDs.length?unwrap(await admin.from('wellness_inventory_moves').select('*').or(`from_location.in.(${locationIDs.join(',')}),to_location.in.(${locationIDs.join(',')})`).order('created_at',{ascending:false}).limit(500)):[];
+  const legacy=eventIDs.length?unwrap(await admin.from('wellness_stock_log').select('*').in('event_id',eventIDs).order('created_at',{ascending:false}).limit(500)):[];
+  const inventory={locations,balances,issues,moves,legacy,asOf:new Date().toISOString()};
   const joined=m.role==='admin'?await all(()=>admin.from('wellness_mission_members').select('mission_id,user_id').order('mission_id').order('user_id')):[];const missionCounts:any={};for(const j of joined)missionCounts[j.mission_id]=(missionCounts[j.mission_id]||0)+1;
   const grades=unwrap(await admin.from('wellness_grades').select('*').eq('active',true).order('grade'));
   const alerts=m.role==='admin'?unwrap(await admin.from('wellness_receipts').select('id,operation,created_at').eq('result->>status','conflict').order('created_at',{ascending:false}).limit(500)):[];
   if(m.role==='admin')background(deliverPush(admin));
-  return new Response(JSON.stringify({member:m,assignments:[],events,members,missions,memberships,grades,alerts,dailyMetrics,missionCounts,totals:m.role==='admin'?{real:summarize(totals.filter((r:any)=>approved.has(r.event_id)))}:null}),{headers});
+  return new Response(JSON.stringify({member:m,assignments:[],events,members,missions,memberships,grades,alerts,dailyMetrics,missionCounts,directory,inventory,totals:m.role==='admin'?{real:summarize(totals.filter((r:any)=>approved.has(r.event_id)))}:null}),{headers});
  }
  if(m.status!=='active'||m.temporary_password)return new Response(JSON.stringify({error:'Your account is waiting for access or a password change.'}),{status:403,headers});
  const isAdmin=m.role==='admin';
@@ -84,6 +95,41 @@ Deno.serve(async(req)=>{
   if(!isAdmin){const membership=unwrap(await admin.from('wellness_mission_members').select('*').eq('user_id',m.id).eq('mission_id',event.mission_id).maybeSingle());if(!membership||(manage&&membership.role!=='admin'))fail('Join this mission first, or ask a mission administrator.');}
   return event;
  };
+ if(b.action==='regular-setup'){
+  if(!isAdmin)fail('Ask your administrator for the regular-visit team code.');
+  const existing=unwrap(await admin.from('wellness_missions').select('*').eq('kind','regular').eq('sample',false).eq('active',true).order('created_at').limit(1));
+  if(existing.length)return new Response(JSON.stringify(existing[0]),{headers});
+  const item={id:crypto.randomUUID(),name:'Regular visits',code:'REG-'+crypto.randomUUID().replaceAll('-','').slice(0,16).toUpperCase(),kind:'regular',location:'Oon Jai Wellness',notes:'Everyday wellness visits',active:true};
+  return new Response(JSON.stringify(unwrap(await admin.rpc('wellness_admin_save',{p_actor:m.id,p_kind:'mission',p_item:item}))),{headers});
+ }
+ if(b.action==='regular-day'){
+  const e=b.event;if(!e||!uuid(e.mission_id)||!/^\d{4}-\d{2}-\d{2}$/.test(e.starts)||!String(e.location||'').trim())fail('Check regular-visit date and location.');
+  const location=String(e.location).trim().replace(/\s+/g,' ');if(location.length>200)fail('Location is too long.');
+  const id=await regularDayID(e.mission_id,e.starts,location);
+  return new Response(JSON.stringify(unwrap(await admin.rpc('wellness_regular_day',{p_actor:m.id,p_item:{id,mission_id:e.mission_id,starts:e.starts,location}}))),{headers});
+ }
+ if(b.action==='inventory-move'){
+  if(!isAdmin)fail('Administrator access required.');const item=b.item;
+  if(!item||!uuid(item.id)||!Number.isInteger(Number(item.quantity)))fail('Check stock movement.');
+  return new Response(JSON.stringify(unwrap(await admin.rpc('wellness_inventory_move',{p_actor:m.id,p_item:item}))),{headers});
+ }
+ if(b.action==='history'||b.action==='report-records'){
+  const memberships=isAdmin?[]:unwrap(await admin.from('wellness_mission_members').select('mission_id').eq('user_id',m.id));
+  const allowedMissions=memberships.map((x:any)=>x.mission_id);
+  const accessible=isAdmin?await all(()=>admin.from('wellness_events').select('id').order('id')):allowedMissions.length?await all(()=>admin.from('wellness_events').select('id').in('mission_id',allowedMissions).order('id')):[];
+  const ids=accessible.map((x:any)=>x.id);
+  let records:any[]=[];
+  if(b.action==='history'){
+   if(!validID(b.person_id))fail('Choose a valid guest profile.');
+   const regs=ids.length?await all(()=>admin.from('wellness_records').select('*').in('event_id',ids).eq('station','registration').or(`guest_id.eq.${b.person_id},data->>person_id.eq.${b.person_id}`).order('event_id').order('guest_id')):[];
+   const pairs=new Set(regs.map((r:any)=>r.event_id+'|'+r.guest_id)),guests=[...new Set(regs.map((r:any)=>r.guest_id))];
+   records=guests.length?(await all(()=>admin.from('wellness_records').select('*').in('event_id',ids).in('guest_id',guests).order('event_id').order('guest_id').order('station'))).filter((r:any)=>pairs.has(r.event_id+'|'+r.guest_id)):[];
+  }else{
+   if(!Array.isArray(b.event_ids)||b.event_ids.length>500||b.event_ids.some((id:any)=>!uuid(id)||!ids.includes(id)))fail('Choose accessible event days.');
+   records=b.event_ids.length?await all(()=>admin.from('wellness_records').select('*').in('event_id',b.event_ids).order('event_id').order('guest_id').order('station')):[];
+  }
+  return new Response(JSON.stringify({records}),{headers});
+ }
  if(b.action==='device'){
   if(!m.initials)fail('Refresh your account to reserve unique initials, then prepare this phone again.');
   if(!uuid(b.id))fail('Invalid phone ID.');
@@ -133,12 +179,13 @@ Deno.serve(async(req)=>{
  }
  if(b.action==='mission'){
   const mission=b.mission;if(!uuid(mission.id)||!mission.name?.trim()||!/^[A-Z0-9][A-Z0-9 -]{3,49}$/.test(mission.code))fail('Enter a mission name and a code with 4–50 letters, numbers, spaces or hyphens.');
-  const item={id:mission.id,revision:mission.revision||null,name:mission.name.trim().slice(0,150),code:mission.code,notes:String(mission.notes||'').slice(0,4000),active:mission.active!==false};
+  const item={id:mission.id,revision:mission.revision||null,name:mission.name.trim().slice(0,150),code:mission.code,notes:String(mission.notes||'').slice(0,4000),active:mission.active!==false,kind:mission.kind||'large',location:String(mission.location||'Oon Jai Wellness').trim().slice(0,200)};
   return new Response(JSON.stringify(unwrap(await admin.rpc('wellness_admin_save',{p_actor:m.id,p_kind:'mission',p_item:item}))),{headers});
  }
  if(b.action==='grade'){
   const grade=Number(b.grade);if(!Number.isFinite(grade)||grade<=0||grade>30)fail('Enter a positive glasses grade up to 30.');
-  unwrap(await admin.from('wellness_grades').upsert({grade:grade.toFixed(2),active:true}));return new Response(JSON.stringify({ok:true}),{headers});
+  const threshold=b.low_stock===undefined?5:Number(b.low_stock);if(!Number.isInteger(threshold)||threshold<0||threshold>100000)fail('Check low-stock threshold.');
+  unwrap(await admin.from('wellness_grades').upsert({grade:grade.toFixed(2),active:true,low_stock:threshold}));return new Response(JSON.stringify({ok:true}),{headers});
  }
  if(b.action==='create-user'){
   const email=String(b.email||'').trim().toLowerCase(),name=String(b.name||'').trim();

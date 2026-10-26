@@ -1,0 +1,53 @@
+begin;
+do $$
+declare owner_id uuid; vol uuid; mid uuid:=gen_random_uuid();rid uuid:=gen_random_uuid();eid uuid:=gen_random_uuid();regday uuid:=gen_random_uuid();dev uuid:=gen_random_uuid();ownerdev uuid:=gen_random_uuid();devcode bigint;gid text;visit2 text;op jsonb;reg jsonb;change_id uuid:=gen_random_uuid();a jsonb;b jsonb;failed boolean;
+begin
+ select id into owner_id from wellness_members where role='admin' and status='active' and not temporary_password limit 1;
+ select id into vol from wellness_members where role='volunteer' and not temporary_password limit 1;
+ if owner_id is null or vol is null then raise exception 'Test requires existing owner and volunteer';end if;
+ update wellness_members set status='active' where id=vol;
+ perform wellness_admin_save(owner_id,'mission',jsonb_build_object('id',mid,'name','QA large event','kind','large','code','QA-'||upper(mid::text),'active',true,'notes','Rollback only'));
+ perform wellness_admin_save(owner_id,'mission',jsonb_build_object('id',rid,'name','QA regular visits','kind','regular','code','QA-'||upper(rid::text),'active',true,'location','QA clinic','notes','Rollback only'));
+ insert into wellness_mission_members(mission_id,user_id) values(mid,vol),(rid,vol);
+ insert into wellness_events(id,mission_id,name,starts,ends,location) values(eid,mid,'QA event',current_date,current_date,'QA venue');
+ a:=wellness_regular_day(vol,jsonb_build_object('id',regday,'mission_id',rid,'starts',current_date,'location','QA clinic'));
+ b:=wellness_regular_day(vol,jsonb_build_object('id',gen_random_uuid(),'mission_id',rid,'starts',current_date,'location','QA clinic'));
+ if a->>'id'<>b->>'id' then raise exception 'Regular day duplicated';end if;
+ a:=jsonb_build_object('id',change_id,'kind','receipt','to_location','main','grade','1.25','quantity',30,'note','QA stock delivery');
+ perform wellness_inventory_move(owner_id,a);perform wellness_inventory_move(owner_id,a);
+ if (select count(*) from wellness_inventory_moves where id=change_id)<>1 then raise exception 'Movement retry duplicated';end if;
+ failed:=false;begin perform wellness_inventory_move(owner_id,a||'{"quantity":31}');exception when others then failed:=true;end;if not failed then raise exception 'Changed idempotency payload accepted';end if;
+ perform wellness_inventory_move(owner_id,jsonb_build_object('id',gen_random_uuid(),'kind','transfer','from_location','main','to_location','day:'||eid,'grade','1.25','quantity',10,'note','QA event allocation'));
+ perform wellness_inventory_move(owner_id,jsonb_build_object('id',gen_random_uuid(),'kind','transfer','from_location','main','to_location','regular:'||rid,'grade','1.25','quantity',10,'note','QA regular allocation'));
+ if wellness_inventory_available('day:'||eid,'1.25')<>10 or wellness_inventory_available('regular:'||rid,'1.25')<>10 then raise exception 'Allocation failed';end if;
+ insert into wellness_devices(id,user_id,prefix,label) values(dev,vol,'QA','QA rollback phone') returning code into devcode;
+ gid:='QA-'||lpad(devcode::text,4,'0')||'-000001-X';visit2:='QA-'||lpad(devcode::text,4,'0')||'-000002-X';
+ reg:=jsonb_build_object('id',gen_random_uuid(),'event_id',eid,'device_id',dev,'guest_id',gid,'station','registration','data',jsonb_build_object('name','QA fictional','consent','yes','person_id',gid),'base_revision',null,'captured_at',now(),'date_ack',true);
+ perform wellness_apply(vol,reg);
+ op:=reg||jsonb_build_object('id',gen_random_uuid(),'station','glasses','data',jsonb_build_object('status','Provided','grade','1.25','quantity','2'));
+ perform wellness_apply(vol,op);perform wellness_apply(vol,op);
+ if wellness_inventory_available('day:'||eid,'1.25')<>8 then raise exception 'Dispensing retry deducted twice';end if;
+ insert into wellness_devices(id,user_id,prefix,label) values(ownerdev,owner_id,'QO','QA owner phone');
+ perform wellness_apply(owner_id,op||jsonb_build_object('id',gen_random_uuid(),'device_id',ownerdev,'base_revision',op->>'id','data',jsonb_build_object('status','Provided','grade','1.25','quantity','1')));
+ if wellness_inventory_available('day:'||eid,'1.25')<>9 then raise exception 'Correction did not restore one pair';end if;
+ perform wellness_inventory_move(owner_id,jsonb_build_object('id',gen_random_uuid(),'kind','return','from_location','day:'||eid,'to_location','main','grade','1.25','quantity',4,'note','QA unused return'));
+ perform wellness_inventory_move(owner_id,jsonb_build_object('id',gen_random_uuid(),'kind','damage','from_location','day:'||eid,'grade','1.25','quantity',1,'note','QA damaged pair'));
+ if wellness_inventory_available('day:'||eid,'1.25')<>4 then raise exception 'Return or damage failed';end if;
+ failed:=false;begin perform wellness_inventory_move(owner_id,jsonb_build_object('id',gen_random_uuid(),'kind','transfer','from_location','day:'||eid,'to_location','main','grade','1.25','quantity',5,'note','QA overdraft'));exception when others then failed:=true;end;if not failed then raise exception 'Overdraft allowed';end if;
+ perform wellness_apply(vol,reg||jsonb_build_object('id',gen_random_uuid(),'event_id',regday,'guest_id',visit2));
+ if (select data->>'person_id' from wellness_records where event_id=regday and guest_id=visit2 and station='registration')<>gid then raise exception 'Returning visit lost profile';end if;
+ perform wellness_apply(vol,op||jsonb_build_object('id',gen_random_uuid(),'event_id',regday,'guest_id',visit2));
+ if wellness_inventory_available('regular:'||rid,'1.25')<>8 then raise exception 'Regular stock failed';end if;
+ perform wellness_apply(vol,reg||jsonb_build_object('id',gen_random_uuid(),'event_id',regday,'guest_id',visit2,'station','programs','data',jsonb_build_object('education','Completed')));
+ perform wellness_approve(owner_id,eid,true);
+ failed:=false;begin perform wellness_inventory_move(owner_id,jsonb_build_object('id',gen_random_uuid(),'kind','receipt','to_location','day:'||eid,'grade','1.25','quantity',1,'note','QA approved'));exception when others then failed:=true;end;if not failed then raise exception 'Approved day stock changed';end if;
+ failed:=false;begin perform wellness_inventory_move(vol,a||jsonb_build_object('id',gen_random_uuid()));exception when others then failed:=true;end;if not failed then raise exception 'Volunteer changed main stock';end if;
+ delete from wellness_mission_members where user_id=vol and mission_id=mid;
+ -- Profile from an unjoined event cannot be used to reveal its history or link a new visit.
+ delete from wellness_records where event_id=regday and station='registration';
+ failed:=false;begin perform wellness_apply(vol,reg||jsonb_build_object('id',gen_random_uuid(),'event_id',regday,'guest_id',visit2));exception when others then failed:=true;end;if not failed then raise exception 'Unauthorized profile linked';end if;
+ if has_table_privilege('authenticated','wellness_inventory_balances','select') or has_function_privilege('anon','wellness_inventory_move(uuid,jsonb)','execute') or has_function_privilege('authenticated','wellness_regular_day(uuid,jsonb)','execute') then raise exception 'Direct API access exposed';end if;
+end $$;
+select 'PASS: regular-day idempotency, atomic stock transfer/return/damage/correction, duplicate retries, corrected dispensing, regular pooled stock, profile links and access boundaries, program records, approval freeze and browser isolation' result;
+
+rollback;

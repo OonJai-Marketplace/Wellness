@@ -1,27 +1,37 @@
-# Oon Jai Wellness · 1.0.3
+# Oon Jai Wellness · 1.1.0
+
+## Large events and regular visits
+
+Five primary destinations are always visible on phones and tablets: **Home, Events, Guests, Inventory, Reports**. Home starts with **Open large event** and **New regular visit**. Tools and Settings are under the gear button. Existing mission-code access, shared Restaurant authentication, encrypted phone storage, and administrator review are preserved.
+
+- **Large events:** create an event/workspace, share its team code, add separate days and locations, prepare phones online, then register guests and record at each station.
+- **Regular visits:** the first administrator click creates the regular-visit workspace. Its default location is editable under Events → Details / team code. Share that code with the regular-care team. Later visits automatically open today's date and location, including offline on a prepared phone. A deterministic daily identifier and an idempotent server operation combine devices into the same day after sync. The 1–10 guest use case is supported without imposing a guest limit.
+- **Returning guests:** Guests shows a searchable directory and dated visit history. Select a profile to start a regular visit or add a visit to the selected event day. A new visit receives its own existing-format ID and explicitly links to the selected profile. Names never trigger automatic merges. Legacy records retain their IDs; records already entered as separate people stay separate until explicitly corrected. Volunteers can see only joined workspaces and cached history while offline.
+- **Stations:** registration; height/weight/BMI/waistline; blood pressure, blood sugar and uric acid; glasses; dental cleaning; consultation; wellness activities. Symptoms, reported conditions, confirmed diagnoses, allergies, medication and follow-up dates remain distinct. Activity participation is recorded against visits separately from the recipe library. Status labels distinguish Waiting, Completed, Referred and Not required. Existing create-only volunteer permissions and administrator correction/conflict review remain in force.
+- **Save & next guest:** registration still shows the saved visit ID before proceeding; other stations can immediately enter the next guest ID.
+
+## Glasses inventory
+
+Inventory opens independently of the selected day. Choose **Main stock**, an **event day/location**, a **regular-visit pool**, or combined locations. Real stock and fictional samples stay separate. Grades start at +1.00 through +5.00 in quarter steps; administrators can add grades and set low-stock thresholds.
+
+Receipts, transfers, unused returns, damage/loss and stock-count corrections form an auditable movement history. A transfer changes custody; it is not a service delivered. Accepted Provided records determine dispensing automatically, including corrected quantities or grades. Retried operations and conflicting entries never deduct twice. Earlier receiving logs and opening balances are retained. On phones, grade, available pairs and stock status remain visible without horizontal scrolling.
+
+Stock movements require an online connection and administrator access. Guest dispensing remains offline-capable. Offline balances include the last synchronized stock and that phone's pending dispensing; other phones' unsynced work is not yet known. Reconcile all phones before transfers or approval. Negative dispensing balances are flagged and block approval; approved event-day stock requires reopening before adjustment.
+
+## Reports
+
+Reports combines **Large events / Regular visits / Combined**, workspace, date, location, service and approval filters. Today's and this month's shortcuts are available. Preliminary results are visible while work is underway; approved-only results exclude draft days and samples. Metric cards open matching visit records. Trends by day and location and a per-day comparison table support event summaries.
+
+Distinct registered guests, guests served, visits, completed services, glasses recipients and glasses pairs are counted separately. Blood pressure, sugar and uric acid counts require actual values; notes-only assessments do not count as tests. Completed activity participation and follow-up dates have their own totals. Registered-profile links deduplicate returning guests across selected days. CSV includes per-day figures and a distinct filtered total. **Print / Save PDF** opens a clean report for the browser's print/PDF flow.
+
+## Release validation (2026-10-26)
+
+Automated core, navigation, gateway and notification tests cover identity checks, report calculations, original offline/conflict behavior and permissions. Browser tests use fictional fixtures at 320, 390, 768 and 1440 pixels and exercise registration, assessments, programs, returning guests, encrypted offline reload, new offline regular days, multiple-tab counters, reconnect, stock movements, report drilldowns, CSV and printable PDF, password-reset vault recovery and volunteer controls. Database tests run inside rollback transactions and check stock idempotency, corrections, transfers/returns/damage, approval boundaries and guest-profile authorization.
+
+The additive migration is in `supabase/migrations/20261026145901_wellness_care_inventory_reports.sql`. Deploy it before the updated `backend/index.ts`, `backend/core.js`, `backend/push.ts` and `backend/deno.json`, then publish the app shell. Do not rerun the original schema. Existing Restaurant data is outside this migration's scope.
+
 
 Installable, phone-first event workspace connected to the Restaurant Supabase project (`dfrulsnparrouuzjbtih`). Existing Restaurant passwords are preserved. Wellness data and permissions are separate.
-
-## Mission → day/location → guest ID
-
-1. Volunteers create their own account, choose a strong password and verify their email. No event data is available until they enter a mission code.
-2. An administrator creates a mission, chooses its shared code (for example `MT-03-2027`) and adds one session for each date and location. A two-day visit to the same location has two sessions. Duplicate date/location sessions within one mission are blocked.
-3. Volunteers enter the shared code. It opens the mission calendar and every station; no individual station assignment is required. The shared code grants access to the mission’s guest data, so share it with the intended team only.
-4. Each phone signs in online, chooses its session and uses **Prepare / refresh phone**. Unique volunteer initials and phone codes are reserved automatically. Offline access lasts seven days after the last access refresh. Test airplane mode before travel.
-5. **New registration** reserves a guest ID before opening the form. Write the full ID on the guest’s slip. Every other station requires that ID before proceeding. The connected form includes registration; height/weight/BMI/waistline; blood pressure, sugar and uric acid; glasses; dental; consultation.
-6. Each station saves locally even if registration has not arrived. Sync joins records by **session + guest ID + station**. The same ID on another date or in another location does not mix the daily records.
-7. Search registration records by name, local name, phone, village or ID to recover a lost slip. Offline recovery requires the registration to already be saved on that phone. Devices cannot retrieve one another’s unsynced data without connectivity.
-8. Viewing historical sessions is unrestricted within joined missions. Saving into a past/future session shows a date/location warning and requires acknowledgment.
-
-## Navigation update 1.0.3
-
-Phone navigation has five destinations: **Home, Missions, Guest form, Records, More**. Desktop navigation groups the same destinations into Get started, This day, Manage, and Help & phone. More provides role-appropriate reports, inventory and settings instead of hiding navigation in Settings.
-
-The daily workspace has a mission selector followed by a date/location selector limited to that mission. Explicit choices are stored in the encrypted phone vault and restored on the next unlock. Empty missions never inherit another mission’s session. When no valid choice exists, prefer an open current day, then the next scheduled day or most recent past day. A newly selected day is queued for refresh if a sync is already running.
-
-Home prioritizes registration and entering an existing ID. All daily pages have direct links to the guest form, records, daily report and glasses stock. Completed guest sections expand on demand; unrecorded station actions stay visible. Settings contains account, phone and notification controls.
-
-Verification for this release: navigation/core/gateway/push Node suites passed; managed browser QA used fictional fixtures on desktop, 390px and 320px phone layouts. Checked mission and day selection across reloads, empty missions, registration, guest lookup, BMI, simulated offline queue/reconnect, reports, 17 stock grades and volunteer-only menus. The managed HTTP preview required mocked storage/auth; this release did not repeat the secure-context encrypted offline browser suite or physical multi-phone testing. The browser regression suite was extended for mission selection and More navigation for execution in an appropriate secure/local environment.
 
 ## Daily review, conflicts and main totals
 
@@ -30,10 +40,6 @@ All joined volunteers can view their mission’s connected daily guest records, 
 Daily reports count registrations, glasses recipients and pairs, dental cleanings, consultation, assessment, referrals and people receiving both glasses and dental services. A service bar chart and CSV export are available. Main totals include only **approved real days**, excluding samples and draft days. Mission analysis adds filtered service, daily and location charts, visit counts and CSV export. A clearly marked fictional preview demonstrates these graphs without adding samples to official totals.
 
 Approval requires no unresolved conflicts, no orphan station records awaiting registration, no known pending phone uploads and no negative glasses stock. The administrator must explicitly confirm every team phone has synced: a never-connected/offline phone cannot report its pending work. Approval locks that day; reopening removes it from main totals until approved again. All corrections and approvals have server-side audit records.
-
-## Reading glasses inventory
-
-The catalog starts at +1.00 through +5.00 in +0.25 increments (17 grades); administrators can add grades. Each day/location has its own received/adjusted stock. Vision staff choose a grade from a dropdown showing the locally known balance. Issued stock is derived from accepted guest records, so retried and conflicting entries do not decrement it twice. Corrections recalculate stock. Negative offline balances are visible and block daily approval until reconciled.
 
 ## Authentication
 
