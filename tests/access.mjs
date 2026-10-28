@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+import {accessSince,canSeeEvent,canSeeRecord,normalizePeople,laoDay} from '../access.js';
+import {strongPassword} from '../core.js';
+const member={role:'volunteer',status:'active',created_at:'2026-10-20T00:00:00Z'}, memberships=[{mission_id:'one',active:true,joined_at:'2026-10-27T18:00:00Z'}];
+const events=[{id:'past',mission_id:'one',starts:'2026-10-27'},{id:'today',mission_id:'one',starts:'2026-10-28'},{id:'future',mission_id:'one',starts:'2027-01-01'},{id:'other',mission_id:'two',starts:'2027-01-01'}];
+assert.equal(laoDay(accessSince(member,memberships[0])),'2026-10-28');
+assert.deepEqual(events.filter(e=>canSeeEvent(member,memberships,e)).map(e=>e.id),['today','future']);
+assert(!canSeeEvent(member,[],events[1]));assert(!canSeeEvent(member,[{...memberships[0],active:false}],events[1]));assert(!canSeeEvent(member,[{mission_id:'one'}],events[1]));
+const old={event_id:'today',created_at:'2026-10-27T17:59:59Z',updated_at:'2027-01-01T00:00:00Z'},fresh={...old,created_at:'2026-10-27T18:00:00Z'};
+assert(!canSeeRecord(member,memberships,events,old));assert(canSeeRecord(member,memberships,events,fresh));
+assert(!canSeeRecord({...member,created_at:'2026-10-28T00:00:00Z'},memberships,events,fresh));
+assert(canSeeRecord({...member,role:'admin'},[],events,old));assert(!canSeeRecord({...member,role:'admin',status:'disabled'},[],events,old));
+assert(!canSeeRecord({...member,temporary_password:true},memberships,events,fresh));
+assert(strongPassword('hello12'));assert(strongPassword('seven77'));assert(!strongPassword('hello1'));assert(!strongPassword('1234567'));assert(!strongPassword('letters'));assert(!strongPassword(' abc1234'));assert(!strongPassword(null));
+assert.deepEqual(normalizePeople([{name:' Test Name ',email:' Name@Example.com '}]),[{name:'Test Name',email:'name@example.com'}]);
+assert.throws(()=>normalizePeople([{name:'A',email:'x@example.com'},{name:'B',email:'X@example.com'}]),/repeated/);assert.throws(()=>normalizePeople([{name:'',email:'x@example.com'}]));assert.throws(()=>normalizePeople(Array.from({length:51},(_,i)=>({name:'A',email:`${i}@example.com`}))));
+console.log('PASS: joining-date/time boundaries, immutable history cutoff, role/status gates, seven-character passwords, batch validation.');

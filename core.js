@@ -12,7 +12,7 @@ export function normalizeID(id){return String(id).trim().toUpperCase().replace(/
 export function checkDigit(base){let n=0;for(const c of base)n=(n*31+c.charCodeAt(0))%36;return n.toString(36).toUpperCase();}
 export function makeID(prefix,code,sequence){const b=`${prefix}-${String(code).padStart(4,'0')}-${String(sequence).padStart(6,'0')}`;return `${b}-${checkDigit(b)}`;}
 export function validID(id){return /^[A-Z]{2,5}-\d{4,12}-\d{6,9}-[A-Z0-9]$/.test(id)&&checkDigit(id.slice(0,-2))===id.slice(-1);}
-export function strongPassword(p){return p.length>=12&&p.length<=128&&p===p.trim()&&/\p{Lu}/u.test(p)&&/\p{Ll}/u.test(p)&&/\p{N}/u.test(p)&&/[^\p{L}\p{N}\s]/u.test(p);}
+export function strongPassword(p){return typeof p==='string'&&p.length>=7&&p.length<=128&&p===p.trim()&&/\p{L}/u.test(p)&&/\p{N}/u.test(p);}
 export function bmi(data){return +data.height>0&&+data.weight>0?(+data.weight/((+data.height/100)**2)).toFixed(1):'';}
 export function validateData(station,data){
  if(!FIELDS[station]||!data||Array.isArray(data)||typeof data!=='object')throw Error('Invalid station record.');

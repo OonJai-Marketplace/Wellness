@@ -1,4 +1,18 @@
-# Oon Jai Wellness · 1.2.0
+# Oon Jai Wellness · 1.3.0
+
+## Mission teams and account access · 1.3.0
+
+Volunteers → Add volunteers starts with ten name/email rows, accepts a pasted tab/comma list, and supports up to 50 accounts per batch. Choose a mission trip once. New accounts are administrator-provisioned, email-confirmed and receive individual temporary passwords in the result/download; they must change them before loading any guest data. No verification email is sent for this administrator provisioning flow. Self-registration still verifies email. Existing Auth identities keep their passwords, Restaurant roles and existing Wellness authority. Temporary passwords are derived server-side for an idempotent retry of the same administrator/batch, never stored in the phone vault or database. Batch results report each success/failure and let the administrator retry failed rows. Share each login privately; the downloadable list is sensitive.
+
+Authority & status now offers Volunteer or Administrator. Only an active administrator can change authority, assign/remove trip membership or save attendance. Changes are audited; self-demotion/disable and removal of the last usable admin are blocked. Creating accounts never grants admin authority. Team grouping and attendance are available inside each event, including a phone shortcut. Attendance is explicitly Not marked, Present, Absent or Excused for a date/location; roster membership is not automatically attendance. Removal revokes trip access but retains recorded attendance in the database.
+
+Volunteers can open Home, Events, Guests/stations, Inventory, Reports, Appointments, Programs & recipes, Volunteers, Guide and Sync. Settings, edit history, authority controls, stock adjustments and approvals remain administrator-only. Personal password change and phone preparation are under More. They see only assigned trips, days on/after their joining date in Asia/Vientiane, and records first received after their joining timestamp (also bounded by account creation). Edits do not make older records visible. Directory, reports, snapshot, history and phone caches use the same filter; server writes reject earlier days/guest visits/profile links. Current available stock carries earlier dispensing into an opening balance without exposing older guest entries. Admins see all history. Names of current mission teammates are shared within the trip; their email/account authority is not sent to volunteers. Existing resource rows with unknown creation time remain admin-only.
+
+Passwords now require 7–128 characters with a letter and a number. Existing passwords remain valid. The shared Restaurant Auth project and its settings are unchanged.
+
+Deploy the additive `wellness_team_access` migration, then the gateway (including `access.js` and `team.ts`), then the 1.3.0 shell. The service worker caches `access.js` for offline use. Access refresh purges unauthorized cached snapshots/history; unsynced submissions remain encrypted for administrator recovery and are hidden from unauthorized views. As before, a disconnected phone cannot receive a role revocation until reconnection, and its existing offline authorization expires after seven days.
+
+Validation: gateway, access, bulk provisioning, core, navigation, care, ticket and push suites; rollback-only database checks for role escalation/lockout, membership and timestamp gates, old visit/profile writes, attendance, retry and browser-role isolation. UI tests use fictional accounts and a fixture vault; they do not create real Auth users or verify live password sign-in/delivery.
 
 ## Focused event workspace · 1.2.0
 
