@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';import vm from 'node:vm';import {webcrypto} from 'node:crypto';
-import * as core from '../core.js';import * as tickets from '../tickets.js';import * as access from '../access.js';import * as navigation from '../navigation.js';
+import * as recordTools from '../record-tools.js';import * as core from '../core.js';import * as tickets from '../tickets.js';import * as access from '../access.js';import * as navigation from '../navigation.js';
 const day=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Vientiane',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
 const event={id:'day-a',mission_id:'mission-a',kind:'large',starts:day,location:'Village A',closed:false};
 const second={...event,id:'day-b',mission_id:'mission-b',location:'Village B'};
@@ -15,16 +15,16 @@ async function api(action,data,state){
  if(action==='ticket-context')return {ranges:serverRanges.filter(r=>r.mission_id===data.mission_id)};
  if(action==='submit'){const o=structuredClone(data.operation);assert(core.validID(o.guest_id),'Only canonical IDs reach the existing server');if(!receipts.has(o.id)){receipts.add(o.id);serverRecords.push({...o,revision:o.id});}if(failAfterSave){failAfterSave=false;throw Error('Connection lost after server saved');}return {status:'saved'};}
  if(action==='snapshot')return {records:serverRecords.filter(r=>r.event_id===data.event_id),resources:[],audit:[],conflicts:[],reviewed:[]};
- if(action==='device-status')return {};
+ if(action==='device-status')return {...data,last_seen:new Date().toISOString(),finished_at:data.finish?new Date().toISOString():null};
  throw Error('Unexpected API action '+action);
 }
 function phone(initial=blank()){
  const elements=new Map();const element=s=>{if(!elements.has(s))elements.set(s,{hidden:false,open:false,value:'',classList:{add(){},remove(){},toggle(){}},showModal(){this.open=true},close(){this.open=false},querySelector:element});return elements.get(s)};
  class Vault{constructor(){this.key=true;this.email='fictional@example.invalid';this.state=structuredClone(initial)}async edit(fn){const next=structuredClone(this.state);const result=fn(next);this.state=next;return result}async reload(){return this.state}}
  const navigator={onLine:false,userAgent:'QA',locks:{request:async(n,fn)=>fn()},storage:{persist:async()=>true}};
- const sb={auth:{onAuthStateChange(){}}};const ctx=vm.createContext({...core,...tickets,...access,...navigation,Vault,crypto:webcrypto,navigator,console,URLSearchParams,URL,TextEncoder,AbortSignal,FormData,Intl,Date,structuredClone,queueMicrotask,setTimeout:()=>0,clearTimeout(){},setInterval(){},confirm:()=>true,localStorage:{getItem(){return ''}},location:{hash:''},window:{WELLNESS_CONFIG:{},supabase:{createClient:()=>sb},addEventListener(){}},document:{querySelector:element,querySelectorAll:()=>[],addEventListener(){},activeElement:null},mockAPI:api});
+ const sb={auth:{onAuthStateChange(){}}};const ctx=vm.createContext({...recordTools,...core,...tickets,...access,...navigation,Vault,crypto:webcrypto,navigator,console,URLSearchParams,URL,TextEncoder,AbortSignal,FormData,Intl,Date,structuredClone,queueMicrotask,setTimeout:()=>0,clearTimeout(){},setInterval(){},confirm:()=>true,localStorage:{getItem(){return ''}},location:{hash:''},window:{WELLNESS_CONFIG:{},supabase:{createClient:()=>sb},addEventListener(){}},document:{querySelector:element,querySelectorAll:()=>[],addEventListener(){},activeElement:null},mockAPI:api});
  const source=fs.readFileSync(new URL('../app.js',import.meta.url),'utf8').replace(/^import .*\n/gm,'');
- vm.runInContext(source+`\nstate=vault.state;missionID='mission-a';eventID='day-a';focusedMissionID='mission-a';render=()=>{};updateStatus=()=>{};toast=()=>{};api=(a,d={})=>mockAPI(a,d,vault.state);show=(title,html,submit,handler)=>{globalThis.modal={title,html,submit:handler};$('#dialog').open=true;};globalThis.test={stationForm,guestDetail,nextStationGuest,chooseContext,ensureDevice,sync,refreshAccess,lookupID,enterEvent,action,load(s){vault.state=s;state=s},get state(){return vault.state},get busy(){return busy},get event(){return eventID},get mission(){return missionID},get error(){return syncError}};`,ctx);
+ vm.runInContext(source+`\nstate=vault.state;missionID='mission-a';eventID='day-a';focusedMissionID='mission-a';render=()=>{};updateStatus=()=>{};toast=()=>{};api=(a,d={})=>mockAPI(a,d,vault.state);show=(title,html,submit,handler)=>{globalThis.modal={title,html,submit:handler};$('#dialog').open=true;};globalThis.test={finishPhone,stationForm,guestDetail,nextStationGuest,chooseContext,ensureDevice,sync,refreshAccess,lookupID,enterEvent,action,load(s){vault.state=s;state=s},get state(){return vault.state},get busy(){return busy},get event(){return eventID},get mission(){return missionID},get error(){return syncError}};`,ctx);
  return {t:ctx.test,ctx,navigator,get modal(){return ctx.modal},close(){element('#dialog').close()}};
 }
 const registration=phone({...blank(),deviceId:'registration-phone',device:{id:'registration-phone'},tickets:[range]});
@@ -54,3 +54,6 @@ const fresh=phone({...blank(),device:null});fresh.navigator.onLine=true;let rele
 // Same short number belongs to different canonical people in different events.
 assert.notEqual(tickets.stationGuestID('A0001','mission-a',serverRanges),tickets.stationGuestID('A0001','mission-b',serverRanges));
 console.log('PASS: real app station handlers accept unknown paper IDs offline at all six stations; registration generation, next guest, duplicate protection, restart, cross-event sync, registration-last merge, lost-response retry, unresolved IDs, mid-form mapping and nonblocking event preparation.');
+
+const finish=phone();await finish.t.stationForm('dental','A0042');await finish.modal.submit({status:'Completed'});finish.navigator.onLine=true;await finish.t.finishPhone();assert(finish.t.state.phoneReports['day-a'].finished_at);assert.equal(finish.t.state.queue.length,0);finish.navigator.onLine=false;await finish.t.stationForm('dental','A0043');await finish.modal.submit({status:'Completed'});assert.equal(finish.t.state.phoneReports['day-a'],undefined);await assert.rejects(()=>finish.t.finishPhone(),/Connect/);
+console.log('PASS: finishing uploads and confirms this phone; new offline entries clear its prior confirmation.');

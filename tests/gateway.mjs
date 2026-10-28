@@ -6,7 +6,7 @@ class Query{constructor(table){this.table=table;this.filters=[];this.singleRow=f
 const auth={getUser:async token=>token==='valid'?{data:{user:{id:USER,email:'qa@example.invalid',user_metadata:{role:'admin'}}},error:null}:{data:{},error:{message:'bad token'}},resend:async()=>({data:{},error:null}),admin:{createUser:async d=>(capturedCreate=d,{data:{user:{id:USER}},error:null}),updateUserById:async()=>({data:{},error:null})}};
 globalThis.__testCreateClient=()=>({auth,from:t=>new Query(t),rpc:async(name,args)=>{if(name==='wellness_rate_guard')return {data:true,error:null};if(name==='wellness_join'){joined=true;return {data:MISSION,error:null};}return {data:{status:'saved'},error:null};}});
 globalThis.Deno={env:{get:()=>''},serve:fn=>handler=fn};
-let source=fs.readFileSync(new URL('../backend/index.ts',import.meta.url),'utf8');source=source.replace(/import \{accessSince[^\n]+\n/,'const {accessSince,canSeeEvent,canSeeRecord}=globalThis;\n').replace(/import \{createPeople[^\n]+\n/,'const createPeople=()=>{throw Error("Uncalled provisioning")};\n');source=source.replace(/import \{createClient\}[^\n]+\n/,'const createClient=globalThis.__testCreateClient;\n').replace(/import \{pushAction[^\n]+\n/,'const pushAction=async()=>{throw Error("Administrator required")},queuePush=async()=>{},deliverPush=async()=>{};\n').replace(/import \{STATIONS[^\n]+\n/,'const {STATIONS,validID,validateData,strongPassword,summarize,regularDayID,stockLocation}=globalThis;\n');await import('data:text/javascript;base64,'+Buffer.from(stripTypeScriptTypes(source)).toString('base64'));
+let source=fs.readFileSync(new URL('../backend/index.ts',import.meta.url),'utf8');source=source.replace(/import \{phoneReport[^\n]+\n/,'const readReminders=async()=>[],phoneReport=async()=>({}),syncOverview=async()=>({}),createReminder=async()=>({}),acknowledgeReminder=async()=>({});\n');source=source.replace(/import \{accessSince[^\n]+\n/,'const {accessSince,canSeeEvent,canSeeRecord}=globalThis;\n').replace(/import \{createPeople[^\n]+\n/,'const createPeople=()=>{throw Error("Uncalled provisioning")};\n');source=source.replace(/import \{createClient\}[^\n]+\n/,'const createClient=globalThis.__testCreateClient;\n').replace(/import \{pushAction[^\n]+\n/,'const pushAction=async()=>{throw Error("Administrator required")},queuePush=async()=>{},deliverPush=async()=>{},deliverSyncReminders=async()=>{};\n').replace(/import \{STATIONS[^\n]+\n/,'const {STATIONS,validID,validateData,strongPassword,summarize,regularDayID,stockLocation}=globalThis;\n');await import('data:text/javascript;base64,'+Buffer.from(stripTypeScriptTypes(source)).toString('base64'));
 const call=async(action,data={},token='valid')=>{const response=await handler(new Request('https://test.invalid',{method:'POST',headers:{Authorization:'Bearer '+token,'content-type':'application/json'},body:JSON.stringify({action,...data})}));return {status:response.status,body:await response.json()};};
 assert.equal((await call('bootstrap',{},'bad')).status,401);
 assert.equal((await call('snapshot',{event_id:EVENT})).status,400);
@@ -17,14 +17,16 @@ assert.equal((await call('device',{id:USER})).status,200); // creates only the c
 assert.equal((await call('join',{code:'QA-CODE'})).status,200);
 const snapshot=await call('snapshot',{event_id:EVENT});assert.equal(snapshot.status,200);assert.equal(snapshot.body.records.length,1);assert.equal(snapshot.body.members,undefined);
 const boot=await call('bootstrap');assert.equal(boot.body.member.role,'volunteer');assert.deepEqual(boot.body.members,[]);assert.equal(boot.body.totals,null);assert.deepEqual(boot.body.alerts,[]);
+assert.equal((await call('record-library')).body.records.length,1);
 oldRecord=true;
-assert.deepEqual((await call('snapshot',{event_id:EVENT})).body.records,[]);
+assert.deepEqual((await call('snapshot',{event_id:EVENT})).body.records,[]);assert.deepEqual((await call('record-library')).body.records,[]);
 assert.deepEqual((await call('report-records',{event_ids:[EVENT]})).body.records,[]);
 assert.deepEqual((await call('history',{person_id:core.makeID('QA',1,1)})).body.records,[]);
 assert.deepEqual((await call('bootstrap')).body.directory,[]);
 pastDay=true;assert.equal((await call('snapshot',{event_id:EVENT})).status,400);assert.equal((await call('report-records',{event_ids:[EVENT]})).status,400);assert.deepEqual((await call('bootstrap')).body.events,[]);
-role='admin';assert.equal((await call('snapshot',{event_id:EVENT})).body.records.length,1);assert.equal((await call('bootstrap')).body.events.length,1);
+role='admin';assert.equal((await call('record-library')).body.records.length,1);assert.equal((await call('snapshot',{event_id:EVENT})).body.records.length,1);assert.equal((await call('bootstrap')).body.events.length,1);
 role='volunteer';oldRecord=false;pastDay=false;
+assert.equal((await call('sync-overview',{event_id:EVENT})).status,400);assert.equal((await call('sync-remind',{event_id:EVENT,id:USER})).status,400);
 assert.equal((await call('create-users',{people:[]})).status,403);assert.equal((await call('team-assign',{})).status,403);assert.equal((await call('attendance',{})).status,403);
 assert.equal((await call('submit',{operation:{}})).status,400);
 assert.equal((await call('inventory-move',{item:{}})).status,400);

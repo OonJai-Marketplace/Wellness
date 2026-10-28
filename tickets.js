@@ -1,5 +1,5 @@
 // Paper IDs are event-scoped aliases. Durable record IDs and profile links never change.
-import {makeID,normalizeID,validID} from './core.js?v=1.3.2';
+import {makeID,normalizeID,validID} from './core.js?v=1.3.3';
 const SIZE=500,BASE=500000000,MAX=26*9999;
 export function ticketLabel(n){if(!Number.isInteger(n)||n<1||n>MAX)throw Error('Guest number is out of range.');return String.fromCharCode(65+Math.floor((n-1)/9999))+String((n-1)%9999+1).padStart(4,'0');}
 export function ticketNumber(value){const id=normalizeID(value);return /^[A-Z]\d{4}$/.test(id)&&Number(id.slice(1))>0?(id.charCodeAt(0)-65)*9999+Number(id.slice(1)):0;}

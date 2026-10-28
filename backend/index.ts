@@ -1,7 +1,8 @@
+import {phoneReport,syncOverview,createReminder,readReminders,acknowledgeReminder} from './sync.ts';
 import {accessSince,canSeeEvent,canSeeRecord} from './access.js';
 import {createPeople} from './team.ts';
 import {createClient} from 'npm:@supabase/supabase-js@2.117.2';
-import {pushAction,queuePush,deliverPush} from './push.ts';
+import {pushAction,queuePush,deliverPush,deliverSyncReminders} from './push.ts';
 import {STATIONS,validID,validateData,strongPassword,summarize,regularDayID,stockLocation} from './core.js';
 const url=Deno.env.get('SUPABASE_URL')!, key=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const admin=createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}});
@@ -69,7 +70,7 @@ Deno.serve(async(req)=>{
 
   const ids=memberships.map((a:any)=>a.mission_id);
   const missions=m.role==='admin'?unwrap(await admin.from('wellness_missions').select('*').order('created_at',{ascending:false})):ids.length?unwrap(await admin.from('wellness_missions').select('*').in('id',ids)):[];
-  const allEventRows=m.role==='admin'?unwrap(await admin.from('wellness_events').select('*').order('starts',{ascending:false})):ids.length?unwrap(await admin.from('wellness_events').select('*').in('mission_id',ids).order('starts',{ascending:false})):[];
+  const allEventRows=m.role==='admin'?await all(()=>admin.from('wellness_events').select('*').order('id')):ids.length?await all(()=>admin.from('wellness_events').select('*').in('mission_id',ids).order('id')):[];
   const eventRows=allEventRows.filter(canEvent);
   const ticketMissions=missions.map((x:any)=>x.id);
   const tickets=ticketMissions.length?await all(()=>admin.from('wellness_ticket_ranges').select('*').in('mission_id',ticketMissions).order('id')):[];
@@ -107,8 +108,9 @@ Deno.serve(async(req)=>{
   const attendance=m.role==='admin'?attendanceRows:attendanceRows.filter((a:any)=>{const e=events.find((e:any)=>e.id===a.event_id);return Date.parse(a.updated_at)>=accessSince(m,memberships.find((mm:any)=>mm.mission_id===e?.mission_id));});
   const grades=unwrap(await admin.from('wellness_grades').select('*').eq('active',true).order('grade'));
   const alerts=m.role==='admin'?unwrap(await admin.from('wellness_receipts').select('id,operation,created_at').eq('result->>status','conflict').order('created_at',{ascending:false}).limit(500)):[];
-  if(m.role==='admin')background(deliverPush(admin));
-  return new Response(JSON.stringify({roster,teamMemberships:joined,attendance,tickets,member:m,assignments:[],events,members,missions,memberships,grades,alerts,dailyMetrics,missionCounts,directory,inventory,totals:m.role==='admin'?{real:summarize(totals.filter((r:any)=>approved.has(r.event_id)))}:null}),{headers});
+  if(m.role==='admin')background(deliverPush(admin));background(deliverSyncReminders(admin));
+  const reminders=await readReminders(admin,m,eventIDs);
+  return new Response(JSON.stringify({reminders,roster,teamMemberships:joined,attendance,tickets,member:m,assignments:[],events,members,missions,memberships,grades,alerts,dailyMetrics,missionCounts,directory,inventory,totals:m.role==='admin'?{real:summarize(totals.filter((r:any)=>approved.has(r.event_id)))}:null}),{headers});
  }
  if(m.status!=='active'||m.temporary_password)return new Response(JSON.stringify({error:'Your account is waiting for access or a password change.'}),{status:403,headers});
  const isAdmin=m.role==='admin';
@@ -118,6 +120,25 @@ Deno.serve(async(req)=>{
   if(!isAdmin){if(!canEvent(event)||manage)fail('This day is outside your access, or requires an administrator.');}
   return event;
  };
+ if(b.action==='record-library'){
+  if(b.mission_id&&!uuid(b.mission_id))fail('Choose an event.');
+  const ids=memberships.map((x:any)=>x.mission_id);
+  const accessible=isAdmin?await all(()=>admin.from('wellness_events').select('*').order('id')):ids.length?await all(()=>admin.from('wellness_events').select('*').in('mission_id',ids).order('id')):[];
+  const events=accessible.filter((e:any)=>canEvent(e)&&(!b.mission_id||e.mission_id===b.mission_id));
+  let records:any[]=[];for(let i=0;i<events.length;i+=100){const batch=events.slice(i,i+100).map((e:any)=>e.id);records.push(...await all(()=>admin.from('wellness_records').select('*').in('event_id',batch).order('event_id').order('guest_id').order('station')));if(records.length>100000)fail('Choose one event to load fewer records.');}
+  return new Response(JSON.stringify({records:visible(records,events),fetched_at:new Date().toISOString()}),{headers});
+ }
+ if(b.action==='sync-overview'){
+  if(!isAdmin)fail('Administrator access required.');await eventAccess(b.event_id,true);
+  return new Response(JSON.stringify(await syncOverview(admin,m,await eventAccess(b.event_id,true))),{headers});
+ }
+ if(b.action==='sync-remind'){
+  if(!isAdmin)fail('Administrator access required.');await eventAccess(b.event_id,true);if(!uuid(b.id))fail('Invalid reminder.');
+  const result=await createReminder(admin,m,await eventAccess(b.event_id,true),b.id);background(deliverSyncReminders(admin));return new Response(JSON.stringify(result),{headers});
+ }
+ if(b.action==='reminder-ack'){
+  if(!uuid(b.id))fail('Invalid reminder.');return new Response(JSON.stringify(await acknowledgeReminder(admin,m,b.id)),{headers});
+ }
  if(b.action==='regular-setup'){
   if(!isAdmin)fail('Ask your administrator for the regular-visit team code.');
   const existing=unwrap(await admin.from('wellness_missions').select('*').eq('kind','regular').eq('sample',false).eq('active',true).order('created_at').limit(1));
@@ -187,9 +208,8 @@ Deno.serve(async(req)=>{
   const result=unwrap(await admin.rpc('wellness_apply',{p_actor:m.id,p_operation:op}));if(result.status==='conflict')background(queuePush(admin,op.id));return new Response(JSON.stringify(result),{headers});
  }
  if(b.action==='device-status'){
-  await eventAccess(b.event_id);if(!uuid(b.device_id)||!Number.isInteger(b.pending)||b.pending<0)fail('Invalid phone status.');
-  if(!unwrap(await admin.from('wellness_devices').select('id').eq('id',b.device_id).eq('user_id',m.id).maybeSingle()))fail('Unknown phone.');
-  unwrap(await admin.from('wellness_device_status').upsert({event_id:b.event_id,device_id:b.device_id,user_id:m.id,pending:b.pending,last_seen:new Date().toISOString()}));return new Response(JSON.stringify({ok:true}),{headers});
+  await eventAccess(b.event_id);if(!uuid(b.device_id)||!Number.isInteger(b.pending)||b.pending<0||!Number.isInteger(b.review_count??0)||(b.review_count??0)<0||(b.last_saved_id&&!uuid(b.last_saved_id)))fail('Invalid phone status.');
+  const result=await phoneReport(admin,m,await eventAccess(b.event_id),{...b,finish:b.finish===true});return new Response(JSON.stringify(result),{headers});
  }
  if(b.action==='approve'){
   await eventAccess(b.event_id,true);if(b.approved===true&&b.phones_confirmed!==true)fail('Confirm every team phone has synced.');

@@ -1,4 +1,16 @@
-# Oon Jai Wellness · 1.3.2
+# Oon Jai Wellness · 1.3.3
+
+## Guest records, phone completion and team reminders · 1.3.3
+
+Guest records provides a searchable visit directory by name, short paper ID, event, location, village and recorded details, with event/day/date/station filters and a detailed CSV export. Open a visit for every station field, BMI and author/time. It includes visits whose registration has not arrived. Offline searches include only cached records and this phone's queue; authorized online records load on entering this page. Existing volunteer history restrictions apply to the endpoint and cached records; administrators can search all events.
+
+Sync center shows each participant and known phone for the selected day, submissions received, latest reported pending count, review items and last contact. Finish and confirm sync uploads the phone's queue, refuses remaining uploads/conflicts, verifies the last saved operation reached the server and persists an explicit completion marker. Receipt identity/status hashes invalidate confirmation after new server activity; reporting new pending work reopens it. Locally, saving another entry clears the marker immediately. A server cannot know about additional entries on a disconnected phone: last reported zero is not final confirmation, and never-reported phones require team follow-up. Confirm every day worked before uninstalling; uploaded records remain in the shared database.
+
+Administrators can send an event-team sync reminder from Sync center. A review dialog identifies the day and message. Current eligible trip members and eligible users of the day receive an in-app request; active users may enable their own Web Push subscription from Sync center without Settings. Notification payloads contain no guest health data. The worker validates current access, uses allowed push-service endpoints, supports retry with a persisted compare-and-swap lease, stops retrying after five attempts, and distinguishes provider acceptance from human receipt. In-app requests can be marked read. Install app and Enable sync reminders are available to volunteers; iPhone users must enable Web Push from the installed Home Screen app. Nothing remotely enables notification permissions or forces a disconnected phone to upload.
+
+This release uses the existing wellness_device_status and wellness_audit tables; no database migration is required. New audit station types hold phone confirmations, reopen events, reminder recipient/delivery state and read acknowledgements. These tables retain their existing service-only access. Deploy the gateway with sync.ts, push.ts, team.ts, core.js, access.js and deno.json before the 1.3.3 static shell. No real team reminder was sent during validation.
+
+Validation includes actual gateway/access and offline form handlers, shared record search, phone confirmation and invalidation, event recipient isolation, idempotent reminders, read acknowledgements, concurrent delivery claims, real VAPID signing with mocked network delivery, and retry exhaustion. Browser UI checks use fictional records and fixture storage; physical push receipt on a user's device is not claimed by automated tests.
 
 ## Offline stations and automatic event preparation · 1.3.2
 
@@ -38,7 +50,7 @@ Verification: core, care, navigation, gateway, push and ticket Node suites; tran
 
 ## Large events and regular visits
 
-Outside an open event, five primary destinations are visible on phones and tablets: **Home, Events, Guests, Inventory, Reports**. Home starts with **Open large event** and **New regular visit**. Tools and Settings are under the gear button. Existing mission-code access, shared Restaurant authentication, encrypted phone storage, and administrator review are preserved.
+Outside an open event, five primary destinations are visible on phones and tablets: **Home, Events, Records, Inventory, Reports**. Home starts with **Open large event** and **New regular visit**. Tools and Settings are under the gear button. Existing mission-code access, shared Restaurant authentication, encrypted phone storage, and administrator review are preserved.
 
 - **Large events:** create an event/workspace, share its team code, add separate days and locations, prepare phones online, then register guests and record at each station.
 - **Regular visits:** the first administrator click creates the regular-visit workspace. Its default location is editable under Events → Details / team code. Share that code with the regular-care team. Later visits automatically open today's date and location, including offline on a prepared phone. A deterministic daily identifier and an idempotent server operation combine devices into the same day after sync. The 1–10 guest use case is supported without imposing a guest limit.
@@ -83,13 +95,13 @@ Self-signup creates an unverified Wellness-only Supabase identity; it does not a
 
 Forgot password returns directly to Wellness, where the new password is set for the shared Supabase identity. Older recovery emails retain their original redirect; request a fresh link after updating. Verification emails may use the project’s existing default redirect; users are instructed to return to Wellness after confirming. SMTP delivery and Supabase email limits apply. Deployment tests did not send verification/recovery mail to real volunteers.
 
-Password requirements match Accounting: 12–128 characters, uppercase/lowercase, number, symbol and no surrounding spaces. Changing a shared Restaurant password affects Restaurant too; Accounting uses a separate project. A password reset on another phone requires the old password to unlock this phone’s unsynced encrypted data before rekeying; failed unlocks never discard saved records.
+Wellness password requirements are 7–128 characters with a letter and a number and no surrounding spaces. Changing a shared Restaurant password affects Restaurant too; Accounting uses a separate project. A password reset on another phone requires the old password to unlock this phone’s unsynced encrypted data before rekeying; failed unlocks never discard saved records.
 
 ## Offline and security implementation
 
 - Encrypted IndexedDB vault, AES-GCM with a PBKDF2-derived key. Password/key are not stored. Each reload requires unlocking the vault.
 - Web Locks serialize counters/outbox writes across tabs. A save is acknowledged only after durable storage completes. Clearing browser data destroys unsynced entries; do not clear it before sync.
-- Paper IDs use one letter and four digits (A0001 through Z9999), unique within an event. The server reserves non-overlapping blocks of up to 500 numbers per phone; encrypted local counters consume them even if a form is abandoned. Phones automatically refill when online and low on numbers. A new browser installation receives a new phone identity. Unused reserved numbers are not recycled. Durable internal IDs and existing profile links remain unchanged. Prepare every station phone after the registration phones to cache their ranges before going offline; a range added later needs a sync before another phone can resolve it.
+- Paper IDs use one letter and four digits (A0001 through Z9999), unique within an event. The server reserves non-overlapping blocks of up to 500 numbers per phone; encrypted local counters consume them even if a form is abandoned. Phones automatically refill when online and low on numbers. A new browser installation receives a new phone identity. Unused reserved numbers are not recycled. Durable internal IDs and existing profile links remain unchanged. Station phones can save an unknown short ID offline without a cached range; the original entry resolves and uploads when its event mapping becomes available after reconnecting.
 - UUID operation receipts make retries idempotent. Independent station records prevent one station overwriting another. Conflicts preserve the incoming payload. Server-side compare-and-set protects admin corrections.
 - Reconnection, foreground return, Sync now and a 30-second visible-app timer sync the outbox. The app must be open; closed-app background sync is not promised.
 - Offline permission changes take effect after reconnection or the seven-day lease expires. Server access checks use current database membership, not user-editable metadata.

@@ -1,3 +1,4 @@
+import {claimReminders,completeReminder} from './sync.ts';
 import webpush from 'npm:web-push@3.6.7';
 const unwrap=({data,error}:any)=>{if(error)throw Error(error.message);return data;};
 const allowedEndpoint=(raw:string)=>{try{const u=new URL(raw);return u.protocol==='https:'&&!u.username&&!u.password&&!u.hash&&(!u.port||u.port==='443')&&(u.hostname==='fcm.googleapis.com'||u.hostname==='web.push.apple.com'||u.hostname.endsWith('.push.apple.com')||u.hostname==='updates.push.services.mozilla.com'||u.hostname.endsWith('.push.services.mozilla.com')||u.hostname.endsWith('.notify.windows.com'));}catch{return false;}};
@@ -9,7 +10,7 @@ async function send(row:any,keys:any,payload:any){
  if(!response.ok)throw Object.assign(Error('Notification service unavailable'),{status:response.status});
 }
 export async function pushAction(db:any,user:any,b:any){
- if(user.role!=='admin'||user.status!=='active'||user.temporary_password)throw Error('Administrator required');
+ if(user.status!=='active'||user.temporary_password)throw Error('Active account required');
  if(b.action==='push-key')return {publicKey:(await config(db,true)).public_key};
  if(b.action==='push-subscribe'){
   const sub=b.subscription;if(!sub||!allowedEndpoint(sub.endpoint)||sub.endpoint.length>2048||!/^[A-Za-z0-9_-]{86,88}$/.test(sub.keys?.p256dh||'')||!/^[A-Za-z0-9_-]{22,24}$/.test(sub.keys?.auth||''))throw Error('Invalid notification subscription');
@@ -19,7 +20,7 @@ export async function pushAction(db:any,user:any,b:any){
  if(b.action==='push-unsubscribe'){unwrap(await db.from('wellness_push_subscriptions').delete().eq('user_id',user.id).eq('endpoint',String(b.endpoint||'')));return {ok:true};}
  if(b.action==='push-test'){
   const rows=unwrap(await db.from('wellness_push_subscriptions').select('*').eq('user_id',user.id).eq('endpoint',String(b.endpoint||'')));if(!rows.length)throw Error('Enable notifications on this phone first');
-  const keys=await config(db);await send(rows[0],keys,{title:'Wellness notifications are ready',body:'This phone can receive administrator review alerts.',tag:'wellness-test',url:'./#settings'});return {ok:true};
+  const keys=await config(db);await send(rows[0],keys,{title:'Wellness notifications are ready',body:'This phone can receive Wellness sync reminders.',tag:'wellness-test',url:'./#sync'});return {ok:true};
  }
  throw Error('Unknown notification action');
 }
@@ -28,4 +29,23 @@ export async function deliverPush(db:any){
  const keys=await config(db);if(!keys)return;
  const rows=unwrap(await db.from('wellness_push_subscriptions').select('id,user_id,endpoint,keys,wellness_members!inner(role,status,temporary_password)').eq('wellness_members.role','admin').eq('wellness_members.status','active').eq('wellness_members.temporary_password',false));if(!rows.length)return;
  const jobs=unwrap(await db.rpc('wellness_push_claim'));for(const job of jobs){let failed=false;await Promise.all(rows.map(async(row:any)=>{try{await send(row,keys,{title:'Wellness review needed',body:'A conflicting submission is waiting for an administrator. Open Wellness to review it.',tag:'wellness-review-'+job.id,url:'./#home'});}catch(error:any){if([404,410].includes(error.status))await db.from('wellness_push_subscriptions').delete().eq('id',row.id);else failed=true;}}));if(!failed)unwrap(await db.from('wellness_push_jobs').update({completed_at:new Date().toISOString()}).eq('id',job.id));}
+}
+
+// Generic notification text avoids putting guest data on a phone's lock screen.
+export async function deliverSyncReminders(db:any){
+ const keys=await config(db),jobs=await claimReminders(db);
+ for(const job of jobs){
+  const recipients=await Promise.all(job.after_data.recipients.map(async(recipient:any)=>{
+   if(recipient.push_state!=='pending')return recipient;const attempts=recipient.attempts+1;let state='unavailable';
+   try{
+    const access=unwrap(await db.rpc('wellness_can_access_day',{p_actor:recipient.user_id,p_event:job.event_id}));
+    if(!access)state='cancelled';
+    else if(keys){const rows=unwrap(await db.from('wellness_push_subscriptions').select('*').eq('user_id',recipient.user_id));let accepted=0,failed=0;
+     await Promise.all(rows.map(async(row:any)=>{try{await send(row,keys,{title:'Please sync your Wellness records',body:'Your event administrator asks you to upload your saved entries, then confirm you have finished in Sync center.',tag:'wellness-sync-'+job.id,url:'./#sync',event_id:job.event_id});accepted++;}catch(error:any){if([404,410].includes(error.status))unwrap(await db.from('wellness_push_subscriptions').delete().eq('id',row.id));else failed++;}}));
+     state=failed?(attempts>=5?'failed':'pending'):accepted?'accepted':'unavailable';
+    }
+   }catch{state=attempts>=5?'failed':'pending';}
+   return {...recipient,attempts,push_state:state};
+  }));await completeReminder(db,job,recipients);
+ }
 }
