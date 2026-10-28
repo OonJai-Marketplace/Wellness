@@ -1,4 +1,12 @@
-# Oon Jai Wellness · 1.3.1
+# Oon Jai Wellness · 1.3.2
+
+## Offline stations and automatic event preparation · 1.3.2
+
+Joining a team code opens its event workspace. Choosing an event/day renders immediately and refreshes access, phone identity, paper-number reservations and records in the background. A separate Settings/Prepare action is no longer required. Initial online sign-in and event access are still required on each phone; registration reserves unique paper numbers online for later offline use. Existing offline authorization still expires after seven days.
+
+Any service station accepts a syntactically valid paper ID (A0001–Z9999) without a local registration or downloaded alias range. Unknown paper IDs remain encrypted in the existing phone queue with their original event/day and operation UUID. When mappings arrive, they resolve within that saved event and upload through the unchanged gateway. Registration can arrive last. Unknown/unissued IDs remain visibly pending for slip/event review; the app never guesses a guest or drops an entry. Same-station duplicates still require review, and retrying a lost response keeps the operation UUID. Each station retains Next guest.
+
+The ticket module now imports the current cached core version; release validation follows every local module import against the service-worker manifest to prevent an uncached dependency breaking offline startup. Validation includes the actual app handlers with isolated phone stores, all six service forms, registration-last linkage, cross-event queues, retry, restart, mapping arriving during an open form and nonblocking day navigation. Browser QA uses fictional fixtures; no production guest records are created.
 
 ## Update notification fix · 1.3.1
 

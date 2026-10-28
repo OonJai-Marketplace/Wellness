@@ -21,5 +21,14 @@ const callbacks=new Set(),worker={state:'installing',addEventListener:(n,fn)=>ca
 const installing=await fixture({current:'1.3.0',worker});const finish=installing.button.onclick();await flush();assert.equal(installing.reloads,0);assert(installing.button.disabled);worker.state='activated';for(const fn of callbacks)fn();await finish;assert.equal(installing.reloads,1);assert.equal(callbacks.size,0);
 const failed=await fixture({current:'1.3.0',failWorker:true});assert(!failed.notice.hidden);await failed.button.onclick();assert.equal(failed.reloads,0);assert(!failed.button.disabled);assert.match(failed.label.textContent,/not ready/);
 const release=JSON.parse(fs.readFileSync(new URL('../version.json',import.meta.url),'utf8')).version;
-for(const file of ['index.html','app.js','sw.js']){const text=fs.readFileSync(new URL('../'+file,import.meta.url),'utf8');for(const [,v]of text.matchAll(/[?&]v=(\d+\.\d+\.\d+)/g))assert.equal(v,release,file+' has a stale release reference');}
+for(const file of ['index.html','app.js','tickets.js','sw.js']){const text=fs.readFileSync(new URL('../'+file,import.meta.url),'utf8');for(const [,v]of text.matchAll(/[?&]v=(\d+\.\d+\.\d+)/g))assert.equal(v,release,file+' has a stale release reference');}
 console.log('PASS: current version stays hidden, newer-only notices, repeated checks clear stale notices, reload resolves notice, open-form/offline guards, worker activation/failure and release reference consistency.');
+
+// Every local ES-module dependency must already be in the offline shell cache.
+const sw=fs.readFileSync(new URL('../sw.js',import.meta.url),'utf8');
+const files=JSON.parse(sw.match(/const FILES=(\[[^;]+\]);/)[1].replaceAll("'",'"'));
+for(const file of ['app.js','tickets.js','access.js','core.js','navigation.js','vault.js']){
+ const text=fs.readFileSync(new URL('../'+file,import.meta.url),'utf8');
+ for(const [,dep] of text.matchAll(/from ['"](\.\/[^'"]+)['"]/g))assert(files.includes(dep),file+' imports an uncached offline dependency: '+dep);
+}
+console.log('PASS: all local module dependencies are precached for offline startup.');

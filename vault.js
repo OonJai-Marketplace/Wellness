@@ -13,7 +13,7 @@ export class Vault{
   return navigator.locks.request('wellness-restaurant-vault-'+this.email,async()=>{
    const record=await read(this.email);this.salt=record?.salt||crypto.getRandomValues(new Uint8Array(16));this.key=await derive(password,this.salt);
    if(record){try{this.state=await decrypt(this.key,record);}catch{this.key=null;throw Object.assign(Error('Saved offline data uses another password. Unlock it with the previous password first. No saved entries were removed.'),{code:'VAULT_PASSWORD'});}}
-   else {if(!allowCreate){this.key=null;throw Error('Sign in online and prepare this phone before using it offline.');}this.state={user:null,deviceId:crypto.randomUUID(),device:null,sequence:0,queue:[],events:[],assignments:[],members:[],snapshots:{},preparedUntil:0};await write(this.email,{salt:this.salt,...await encrypt(this.key,this.state)});}
+   else {if(!allowCreate){this.key=null;throw Error('Sign in and open the event online once on this phone before using it offline.');}this.state={user:null,deviceId:crypto.randomUUID(),device:null,sequence:0,queue:[],events:[],assignments:[],members:[],snapshots:{},preparedUntil:0};await write(this.email,{salt:this.salt,...await encrypt(this.key,this.state)});}
    return this.state;
   });
  }

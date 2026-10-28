@@ -1,5 +1,5 @@
-const CACHE='oonjai-wellness-v13';
-const FILES=['./','./index.html','./style.css?v=1.3.1','./app.js?v=1.3.1','./core.js?v=1.3.1','./access.js?v=1.3.1','./tickets.js?v=1.3.1','./navigation.js?v=1.3.1','./vault.js?v=1.3.1','./config.js?v=1.3.1','./vendor/supabase.js','./updates.js?v=1.3.1','./manifest.webmanifest','./assets/logo.png','./assets/oonjai-favicon.png?v=oonjai-1','./assets/oonjai-192.png?v=oonjai-1','./assets/oonjai-512.png?v=oonjai-1','./assets/oonjai-maskable.png?v=oonjai-1'];
+const CACHE='oonjai-wellness-v14';
+const FILES=['./','./index.html','./style.css?v=1.3.2','./app.js?v=1.3.2','./core.js?v=1.3.2','./access.js?v=1.3.2','./tickets.js?v=1.3.2','./navigation.js?v=1.3.2','./vault.js?v=1.3.2','./config.js?v=1.3.2','./vendor/supabase.js','./updates.js?v=1.3.2','./manifest.webmanifest','./assets/logo.png','./assets/oonjai-favicon.png?v=oonjai-1','./assets/oonjai-192.png?v=oonjai-1','./assets/oonjai-512.png?v=oonjai-1','./assets/oonjai-maskable.png?v=oonjai-1'];
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(FILES)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('oonjai-wellness-')&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
 self.addEventListener('fetch',e=>{
