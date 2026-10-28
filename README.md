@@ -1,4 +1,8 @@
-# Oon Jai Wellness · 1.3.0
+# Oon Jai Wellness · 1.3.1
+
+## Update notification fix · 1.3.1
+
+The update checker derives its running version from the loaded app script. Only newer releases show the notice; matching or older manifests clear it. Installing an update waits for the service worker to activate, keeps unsaved forms protected, and never clears local records. Regression checks cover installed/repeated checks, stale manifests, actual upgrades, offline operation and worker installation failure.
 
 ## Mission teams and account access · 1.3.0
 
