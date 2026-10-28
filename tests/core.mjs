@@ -5,7 +5,7 @@ assert.equal(normalizeID(' sc-0001-000001-a '),'SC-0001-000001-A');assert.equal(
 const m={event_id:'e',guest_id:'g',station:'measurements',data:{height:'170',weight:'68'}};
 assert.equal(summarize([m]).awaiting,1);const r={event_id:'e',guest_id:'g',station:'registration',data:{name:'Example'}};assert.equal(summarize(mergeRecords([m],[r])).awaiting,0);
 assert.equal(mergeRecords([m],[{...m,id:'new',data:{weight:'70'}}]).length,1);assert.equal(mergeRecords([m],[{...m,status:'conflict',data:{weight:'70'}}])[0].data.weight,'68');
-assert.throws(()=>validateData('registration',{name:'Sample'}));assert.throws(()=>validateData('measurements',{height:'0',weight:'68'}));assert.throws(()=>validateData('assessment',{systolic:'120'}));assert.throws(()=>validateData('dental',{status:'Completed',role:'admin'}));assert.equal(validateData('glasses',{status:'Assessed only',quantity:'1'}).quantity,'0');
+assert.equal(validateData('registration',{name:'Sample'}).name,'Sample');assert.throws(()=>validateData('measurements',{height:'0',weight:'68'}));assert.throws(()=>validateData('assessment',{systolic:'120'}));assert.throws(()=>validateData('dental',{status:'Completed',role:'admin'}));assert.equal(validateData('glasses',{status:'Assessed only',quantity:'1'}).quantity,'0');
 assert(strongPassword('Temporary!Test2026'));assert(!strongPassword('volunteer@example.com'));
 console.log('PASS: 10,000 unique guest IDs, checksums, BMI, out-of-order projection, conflicts, field validation, password policy');
 const {aggregateDays,pendingDays}=await import('../core.js');

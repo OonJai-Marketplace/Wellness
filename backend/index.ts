@@ -60,11 +60,13 @@ Deno.serve(async(req)=>{
    }
   }
 
-  if(m.temporary_password)return new Response(JSON.stringify({member:m,assignments:[],events:[],members:[],resources:[]}),{headers});
+  if(m.temporary_password)return new Response(JSON.stringify({tickets:[],member:m,assignments:[],events:[],members:[],resources:[]}),{headers});
   const memberships=unwrap(await admin.from('wellness_mission_members').select('*').eq('user_id',m.id));
   const ids=memberships.map((a:any)=>a.mission_id);
   const missions=m.role==='admin'?unwrap(await admin.from('wellness_missions').select('*').order('created_at',{ascending:false})):ids.length?unwrap(await admin.from('wellness_missions').select('*').in('id',ids)):[];
   const eventRows=m.role==='admin'?unwrap(await admin.from('wellness_events').select('*').order('starts',{ascending:false})):ids.length?unwrap(await admin.from('wellness_events').select('*').in('mission_id',ids).order('starts',{ascending:false})):[];
+  const ticketMissions=missions.map((x:any)=>x.id);
+  const tickets=ticketMissions.length?await all(()=>admin.from('wellness_ticket_ranges').select('*').in('mission_id',ticketMissions).order('id')):[];
   const events=eventRows.map((e:any)=>({...e,kind:missions.find((m:any)=>m.id===e.mission_id)?.kind||'large'}));
   const members=m.role==='admin'?unwrap(await admin.from('wellness_members').select('*').order('created_at')):[];
   const eventIDs=events.map((e:any)=>e.id);
@@ -85,7 +87,7 @@ Deno.serve(async(req)=>{
   const grades=unwrap(await admin.from('wellness_grades').select('*').eq('active',true).order('grade'));
   const alerts=m.role==='admin'?unwrap(await admin.from('wellness_receipts').select('id,operation,created_at').eq('result->>status','conflict').order('created_at',{ascending:false}).limit(500)):[];
   if(m.role==='admin')background(deliverPush(admin));
-  return new Response(JSON.stringify({member:m,assignments:[],events,members,missions,memberships,grades,alerts,dailyMetrics,missionCounts,directory,inventory,totals:m.role==='admin'?{real:summarize(totals.filter((r:any)=>approved.has(r.event_id)))}:null}),{headers});
+  return new Response(JSON.stringify({tickets,member:m,assignments:[],events,members,missions,memberships,grades,alerts,dailyMetrics,missionCounts,directory,inventory,totals:m.role==='admin'?{real:summarize(totals.filter((r:any)=>approved.has(r.event_id)))}:null}),{headers});
  }
  if(m.status!=='active'||m.temporary_password)return new Response(JSON.stringify({error:'Your account is waiting for access or a password change.'}),{status:403,headers});
  const isAdmin=m.role==='admin';
@@ -129,6 +131,10 @@ Deno.serve(async(req)=>{
    records=b.event_ids.length?await all(()=>admin.from('wellness_records').select('*').in('event_id',b.event_ids).order('event_id').order('guest_id').order('station')):[];
   }
   return new Response(JSON.stringify({records}),{headers});
+ }
+ if(b.action==='ticket-context'){
+  if(!uuid(b.mission_id)||(b.device_id&&!uuid(b.device_id))||(b.after!=null&&!Number.isSafeInteger(b.after)))fail('Choose a valid event and phone.');
+  return new Response(JSON.stringify(unwrap(await admin.rpc('wellness_ticket_context',{p_actor:m.id,p_mission:b.mission_id,p_device:b.device_id||null,p_after:b.after??null}))),{headers});
  }
  if(b.action==='device'){
   if(!m.initials)fail('Refresh your account to reserve unique initials, then prepare this phone again.');
@@ -179,7 +185,7 @@ Deno.serve(async(req)=>{
  }
  if(b.action==='mission'){
   const mission=b.mission;if(!uuid(mission.id)||!mission.name?.trim()||!/^[A-Z0-9][A-Z0-9 -]{3,49}$/.test(mission.code))fail('Enter a mission name and a code with 4–50 letters, numbers, spaces or hyphens.');
-  const item={id:mission.id,revision:mission.revision||null,name:mission.name.trim().slice(0,150),code:mission.code,notes:String(mission.notes||'').slice(0,4000),active:mission.active!==false,kind:mission.kind||'large',location:String(mission.location||'Oon Jai Wellness').trim().slice(0,200)};
+  const item={id:mission.id,revision:mission.revision||null,name:mission.name.trim().slice(0,150),code:mission.code,notes:String(mission.notes||'').slice(0,4000),active:mission.active!==false,country:String(mission.country||'Laos').trim().slice(0,60),province:String(mission.province||'').trim().slice(0,120),kind:mission.kind||'large',location:String(mission.location||'Oon Jai Wellness').trim().slice(0,200)};
   return new Response(JSON.stringify(unwrap(await admin.rpc('wellness_admin_save',{p_actor:m.id,p_kind:'mission',p_item:item}))),{headers});
  }
  if(b.action==='grade'){

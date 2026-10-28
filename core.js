@@ -22,7 +22,7 @@ export function validateData(station,data){
  if(out.record_status&&!['Completed','Waiting','Not required','Referred'].includes(out.record_status))throw Error('Choose a valid service status.');
  if(out.record_status&&out.record_status!=='Completed')return {record_status:out.record_status,...(out.notes?{notes:out.notes}:{}),...(out.followup_date?{followup_date:out.followup_date}:{})};
  const number=(k,min,max,required=false,integer=false)=>{if(!out[k]&&!required)return;const v=Number(out[k]);if(!out[k]||!Number.isFinite(v)||v<min||v>max||(integer&&!Number.isInteger(v)))throw Error('Check '+k+'.');};
- if(station==='registration'){if(!out.name||out.name.length>150)throw Error('Enter the guest name (up to 150 characters).');if(out.consent!=='yes')throw Error('Confirm permission to record the guest’s information.');number('age',0,120,false,true);}
+ if(station==='registration'){if(!out.name||out.name.length>150)throw Error('Enter the guest name (up to 150 characters).');number('age',0,120,false,true);}
  if(station==='measurements'){number('height',30,250,true);number('weight',1,400,true);number('waist',20,250);}
  if(station==='glasses'){if(!['Provided','Assessed only','Referred','Waiting','Not required'].includes(out.status))throw Error('Choose glasses outcome.');if(out.status==='Provided')number('quantity',1,20,true,true);if(out.status==='Provided'&&!out.grade)throw Error('Record the glasses grade.');if(out.status!=='Provided')out.quantity='0';}
  if(station==='dental'&&!['Completed','Assessed only','Referred','Declined','Waiting','Not required'].includes(out.status))throw Error('Choose dental outcome.');

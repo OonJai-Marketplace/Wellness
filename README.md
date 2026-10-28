@@ -1,14 +1,24 @@
-# Oon Jai Wellness · 1.1.0
+# Oon Jai Wellness · 1.2.0
+
+## Focused event workspace · 1.2.0
+
+Open event (or Open day) enters a named workspace. Registration, stations, guests/queue, day/location calendar, event stock, reports, appointments, corrections and sync remain inside that event until **All events** is selected. Reopening the app restores the event workspace. Reports, inventory and queued-entry views are scoped to that event; synchronization still safely uploads any pending work saved elsewhere on the phone.
+
+Set country and province once in Event details. Registration inherits those values and asks for village/district and language. The redundant street address, permission prompt and save-next checkbox are removed. Existing stored information and record links are retained.
+
+Short paper IDs are aliases backed by `wellness_ticket_ranges`; existing IDs remain accepted. The alias is resolved using the selected event, then the original day + internal guest ID + station key is used for saving, conflicts and stock. Events can reuse A0001 without merging people. The maximum is 259,974 reserved paper numbers per event. The gateway-only allocation RPC repeats current membership and phone ownership checks, serializes allocation and makes retries idempotent. Deploy the additive `wellness_event_workspace_tickets` migration and gateway before the 1.2.0 shell.
+
+Verification: core, care, navigation, gateway, push and ticket Node suites; transactional database checks rolled back after testing allocation, retry, legacy conversion, event metadata, access denial, and out-of-order station saves. Browser QA uses fictional fixtures because the managed HTTP preview has no secure-context crypto; it verifies the actual UI with a fixture vault, not production encrypted offline storage. Physical multi-phone testing remains necessary before travel.
 
 ## Large events and regular visits
 
-Five primary destinations are always visible on phones and tablets: **Home, Events, Guests, Inventory, Reports**. Home starts with **Open large event** and **New regular visit**. Tools and Settings are under the gear button. Existing mission-code access, shared Restaurant authentication, encrypted phone storage, and administrator review are preserved.
+Outside an open event, five primary destinations are visible on phones and tablets: **Home, Events, Guests, Inventory, Reports**. Home starts with **Open large event** and **New regular visit**. Tools and Settings are under the gear button. Existing mission-code access, shared Restaurant authentication, encrypted phone storage, and administrator review are preserved.
 
 - **Large events:** create an event/workspace, share its team code, add separate days and locations, prepare phones online, then register guests and record at each station.
 - **Regular visits:** the first administrator click creates the regular-visit workspace. Its default location is editable under Events → Details / team code. Share that code with the regular-care team. Later visits automatically open today's date and location, including offline on a prepared phone. A deterministic daily identifier and an idempotent server operation combine devices into the same day after sync. The 1–10 guest use case is supported without imposing a guest limit.
-- **Returning guests:** Guests shows a searchable directory and dated visit history. Select a profile to start a regular visit or add a visit to the selected event day. A new visit receives its own existing-format ID and explicitly links to the selected profile. Names never trigger automatic merges. Legacy records retain their IDs; records already entered as separate people stay separate until explicitly corrected. Volunteers can see only joined workspaces and cached history while offline.
+- **Returning guests:** Guests shows a searchable directory and dated visit history. Select a profile to start a regular visit or add a visit to the selected event day. A new visit receives its own short paper ID and explicitly links to the selected profile. Names never trigger automatic merges. Legacy records retain their IDs; records already entered as separate people stay separate until explicitly corrected. Volunteers can see only joined workspaces and cached history while offline.
 - **Stations:** registration; height/weight/BMI/waistline; blood pressure, blood sugar and uric acid; glasses; dental cleaning; consultation; wellness activities. Symptoms, reported conditions, confirmed diagnoses, allergies, medication and follow-up dates remain distinct. Activity participation is recorded against visits separately from the recipe library. Status labels distinguish Waiting, Completed, Referred and Not required. Existing create-only volunteer permissions and administrator correction/conflict review remain in force.
-- **Save & next guest:** registration still shows the saved visit ID before proceeding; other stations can immediately enter the next guest ID.
+- **Saving:** one Save button. The saved confirmation shows the short paper ID and a Next guest button, without a save-next checkbox.
 
 ## Glasses inventory
 
@@ -53,7 +63,7 @@ Password requirements match Accounting: 12–128 characters, uppercase/lowercase
 
 - Encrypted IndexedDB vault, AES-GCM with a PBKDF2-derived key. Password/key are not stored. Each reload requires unlocking the vault.
 - Web Locks serialize counters/outbox writes across tabs. A save is acknowledged only after durable storage completes. Clearing browser data destroys unsynced entries; do not clear it before sync.
-- Guest IDs contain reserved initials, database-allocated phone number, local sequence and check character. A new browser installation receives a new phone number. Unused reserved numbers are not recycled.
+- Paper IDs use one letter and four digits (A0001 through Z9999), unique within an event. The server reserves non-overlapping blocks of up to 500 numbers per phone; encrypted local counters consume them even if a form is abandoned. Phones automatically refill when online and low on numbers. A new browser installation receives a new phone identity. Unused reserved numbers are not recycled. Durable internal IDs and existing profile links remain unchanged. Prepare every station phone after the registration phones to cache their ranges before going offline; a range added later needs a sync before another phone can resolve it.
 - UUID operation receipts make retries idempotent. Independent station records prevent one station overwriting another. Conflicts preserve the incoming payload. Server-side compare-and-set protects admin corrections.
 - Reconnection, foreground return, Sync now and a 30-second visible-app timer sync the outbox. The app must be open; closed-app background sync is not promised.
 - Offline permission changes take effect after reconnection or the seven-day lease expires. Server access checks use current database membership, not user-editable metadata.
