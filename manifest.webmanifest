@@ -2,27 +2,27 @@
   "id": "./",
   "name": "Oon Jai Wellness",
   "short_name": "Wellness",
-  "description": "Community wellbeing \u2014 design preview",
+  "description": "Oon Jai community wellbeing and event stations.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "background_color": "#f7f8f3",
-  "theme_color": "#174c38",
+  "theme_color": "#137f80",
   "icons": [
     {
-      "src": "assets/oonjai-192.png?v=oonjai-1",
+      "src": "assets/app-icons/wellness-192-v1.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "assets/oonjai-512.png?v=oonjai-1",
+      "src": "assets/app-icons/wellness-512-v1.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "assets/oonjai-maskable.png?v=oonjai-1",
+      "src": "assets/app-icons/wellness-maskable-v1.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
