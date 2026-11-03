@@ -1,4 +1,8 @@
-# Oon Jai Wellness · 1.4.0
+# Oon Jai Wellness · 1.4.1
+
+## Guest section audit · 1.4.1
+
+Complete guest forms, record details, visit history and Print / Save guest PDF now share the director’s numbered sections. Medical/family history, symptoms and lifestyle are distinct; physical measurements and vital signs appear together under Section 5; glucose, cholesterol and uric acid remain separate subgroups under Section 6. Section buttons open the matching entry heading. Existing station storage and permissions are unchanged. See [the request checklist and verification](docs/director-request-audit-2026-11-03.md).
 
 ## Director screening update · 1.4.0
 
