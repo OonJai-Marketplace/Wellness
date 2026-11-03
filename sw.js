@@ -1,5 +1,5 @@
-const CACHE='oonjai-wellness-v16';
-const FILES=['./','./index.html','./style.css?v=1.3.4','./app.js?v=1.3.4','./record-tools.js?v=1.3.4','./core.js?v=1.3.4','./access.js?v=1.3.4','./tickets.js?v=1.3.4','./navigation.js?v=1.3.4','./vault.js?v=1.3.4','./config.js?v=1.3.4','./vendor/supabase.js','./updates.js?v=1.3.4','./manifest.webmanifest?v=1.3.4','./assets/app-icons/wellness-180-v1.png','./assets/logo.png','./assets/app-icons/wellness-48-v1.png','./assets/app-icons/wellness-192-v1.png','./assets/app-icons/wellness-512-v1.png','./assets/app-icons/wellness-maskable-v1.png'];
+const CACHE='oonjai-wellness-v17';
+const FILES=['./','./index.html','./style.css?v=1.4.0','./app.js?v=1.4.0','./record-tools.js?v=1.4.0','./core.js?v=1.4.0','./access.js?v=1.4.0','./tickets.js?v=1.4.0','./navigation.js?v=1.4.0','./vault.js?v=1.4.0','./config.js?v=1.4.0','./vendor/supabase.js','./updates.js?v=1.4.0','./manifest.webmanifest?v=1.4.0','./assets/app-icons/wellness-180-v1.png','./assets/logo.png','./assets/app-icons/wellness-48-v1.png','./assets/app-icons/wellness-192-v1.png','./assets/app-icons/wellness-512-v1.png','./assets/app-icons/wellness-maskable-v1.png'];
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(FILES)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('oonjai-wellness-')&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
 self.addEventListener('fetch',e=>{

@@ -3,7 +3,7 @@ import {accessSince,canSeeEvent,canSeeRecord} from './access.js';
 import {createPeople} from './team.ts';
 import {createClient} from 'npm:@supabase/supabase-js@2.117.2';
 import {pushAction,queuePush,deliverPush,deliverSyncReminders} from './push.ts';
-import {STATIONS,validID,validateData,strongPassword,summarize,regularDayID,stockLocation} from './core.js';
+import {STATIONS,validateSupply,validID,validateData,strongPassword,summarize,regularDayID,stockLocation} from './core.js';
 const url=Deno.env.get('SUPABASE_URL')!, key=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const admin=createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}});
 const origin='https://oonjai-marketplace.github.io';
@@ -101,6 +101,8 @@ Deno.serve(async(req)=>{
    balances=balances.map((b:any)=>({...b,received:Number(b.received)-hidden.filter((r:any)=>r.data.grade===b.grade&&stockLocation(stockEvents.find((e:any)=>e.id===r.event_id))===b.location_id).reduce((n:number,r:any)=>n+Number(r.data.quantity||0),0)}));
   }
   const inventory={locations,balances,issues,moves,legacy,asOf:new Date().toISOString()};
+  const rawSupplies=locationIDs.length?await all(()=>admin.from('wellness_resources').select('*').eq('kind','supply').in('data->>location_id',locationIDs).order('id')):[];
+  const supplies=rawSupplies.filter((r:any)=>locationIDs.includes(r.data.location_id)).map((r:any)=>m.role==='admin'?r:{...r,data:{...r.data,note:''}});
   const joined=m.role==='admin'?await all(()=>admin.from('wellness_mission_members').select('*').order('mission_id').order('user_id')):ids.length?await all(()=>admin.from('wellness_mission_members').select('mission_id,user_id,joined_at,active').in('mission_id',ids).eq('active',true).order('mission_id').order('user_id')):[];const missionCounts:any={};for(const j of joined.filter((j:any)=>j.active!==false))missionCounts[j.mission_id]=(missionCounts[j.mission_id]||0)+1;
   const rosterIDs=[...new Set(joined.map((j:any)=>j.user_id))];
   const roster=m.role==='admin'?members:rosterIDs.length?await all(()=>admin.from('wellness_members').select('id,name,initials').in('id',rosterIDs).order('id')):[];
@@ -110,7 +112,7 @@ Deno.serve(async(req)=>{
   const alerts=m.role==='admin'?unwrap(await admin.from('wellness_receipts').select('id,operation,created_at').eq('result->>status','conflict').order('created_at',{ascending:false}).limit(500)):[];
   if(m.role==='admin')background(deliverPush(admin));background(deliverSyncReminders(admin));
   const reminders=await readReminders(admin,m,eventIDs);
-  return new Response(JSON.stringify({reminders,roster,teamMemberships:joined,attendance,tickets,member:m,assignments:[],events,members,missions,memberships,grades,alerts,dailyMetrics,missionCounts,directory,inventory,totals:m.role==='admin'?{real:summarize(totals.filter((r:any)=>approved.has(r.event_id)))}:null}),{headers});
+  return new Response(JSON.stringify({reminders,roster,teamMemberships:joined,attendance,tickets,member:m,assignments:[],events,members,missions,memberships,grades,alerts,dailyMetrics,missionCounts,directory,inventory,supplies,totals:m.role==='admin'?{real:summarize(totals.filter((r:any)=>approved.has(r.event_id)))}:null}),{headers});
  }
  if(m.status!=='active'||m.temporary_password)return new Response(JSON.stringify({error:'Your account is waiting for access or a password change.'}),{status:403,headers});
  const isAdmin=m.role==='admin';
@@ -192,7 +194,7 @@ Deno.serve(async(req)=>{
   const records=visible(rawRecords,[currentEvent]);
   const since=accessSince(m,memberships.find((mm:any)=>mm.mission_id===currentEvent.mission_id));
   const resourceRows=await all(()=>admin.from('wellness_resources').select('*').or(`event_id.eq.${b.event_id},event_id.is.null`).order('id'));
-  const resources=isAdmin?resourceRows:resourceRows.filter((r:any)=>Date.parse(r.created_at)>=since);
+  const resources=resourceRows.filter((r:any)=>r.kind!=='supply'&&(isAdmin||Date.parse(r.created_at)>=since));
   const audit=isAdmin?unwrap(await admin.from('wellness_audit').select('*').eq('event_id',b.event_id).order('created_at',{ascending:false}).limit(500)):[];
   const conflicts=isAdmin?unwrap(await admin.from('wellness_receipts').select('*').eq('result->>status','conflict').eq('operation->>event_id',b.event_id).order('created_at',{ascending:false}).limit(500)):[];
   const reviewed=unwrap(await admin.from('wellness_receipts').select('id').eq('user_id',m.id).eq('operation->>event_id',b.event_id).eq('result->>status','reviewed'));
@@ -253,9 +255,16 @@ Deno.serve(async(req)=>{
   return new Response(JSON.stringify(unwrap(await admin.rpc('wellness_admin_save',{p_actor:m.id,p_kind:'event',p_item:clean}))),{headers});
  }
  if(b.action==='resource'){
-  const r=b.resource;if(!uuid(r.id)||!['appointment','recipe'].includes(r.kind)||!r.data||JSON.stringify(r.data).length>20000)fail('Invalid program or appointment.');
+  const r=b.resource;if(!uuid(r.id)||!['appointment','recipe','supply'].includes(r.kind)||!r.data||JSON.stringify(r.data).length>20000)fail('Invalid program, appointment or supply.');
   if(r.kind==='appointment'&&!uuid(r.event_id))fail('Choose the appointment day.');
-  const clean={id:r.id,kind:r.kind,event_id:r.event_id||null,data:r.data,revision:r.revision||null};
+  let resourceData=r.data,resourceEvent=r.event_id||null;
+  if(r.kind==='supply'){
+   resourceData=validateSupply(r.data);
+   const location=unwrap(await admin.from('wellness_inventory_locations').select('*').eq('id',resourceData.location_id).maybeSingle());if(!location)fail('Stock location unavailable.');
+   resourceEvent=location.event_id||null;
+   const expected=await regularDayID('supply-stock',resourceData.item,resourceData.location_id);if(r.id!==expected)fail('Invalid supply identifier. Refresh stock first.');
+  }
+  const clean={id:r.id,kind:r.kind,event_id:resourceEvent,data:resourceData,revision:r.revision||null};
   return new Response(JSON.stringify(unwrap(await admin.rpc('wellness_admin_save',{p_actor:m.id,p_kind:'resource',p_item:clean}))),{headers});
  }
  if(b.action==='resolve'){

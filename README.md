@@ -1,4 +1,18 @@
-# Oon Jai Wellness · 1.3.3
+# Oon Jai Wellness · 1.4.0
+
+## Director screening update · 1.4.0
+
+Guest Information starts with name and adds occupation. Medical History & Lifestyle (sections 2–4) and Urinalysis (section 7) have independent station records, preserving registration-last/offline entry and conflict review. The existing measurement, blood screening, eyeglasses, dental and consultation stations provide the remaining sections through 10. Existing station keys, profile links, historical values and stock issue codes are retained. A completed registration does not require all screenings.
+
+The form includes condition/symptom checklists with exclusive None choices, family/surgical history, medication/allergy details, lifestyle questions, optional vital signs, cholesterol and blood-screening context. Blank answers are not negative answers. Glucose fasting wording permits plain water. Urine results use product-name/date fields and editable result choices: staff copy product-specific values and units directly from the container; numerical positive scales are not presumed without the strip chart. Not tested is available for every urine parameter, including pH and specific gravity. No diagnosis or clinical interpretation is generated.
+
+Reports include cholesterol and urinalysis counts, per-day columns, filtered CSV exports and visit drilldowns. Negative urine results count as performed tests; all-Not-tested records and notes alone do not. Each guest visit has Print / Save guest PDF. Daily Report and Glasses Stock shortcuts were removed from the Guest tabs; their main Reports and Inventory functions remain.
+
+Inventory includes glucose, cholesterol, uric acid and urinalysis strips, dental scalers and dental mirrors. Administrators record available quantities, product/expiry and a reason by stock location through the existing audited, revision-checked resource path. Counts are manual, not automatic deductions from screening records; reusable instruments are not consumed per cleaning. Uncounted stock is explicit. Existing glasses receipts, movements and dispensing are unchanged.
+
+Deploy the additive wellness_director_screening migration, then backend/index.ts with the updated core.js and existing dependencies, then the 1.4.0 static shell. The database fix permits a non-dispensed glasses record without a grade. Existing RLS and gateway access checks remain intact; supply snapshots are scoped to authorized stock locations and excluded from globally visible recipe resources. No production guest records are created during validation.
+
+Validation: all Node suites, new screening-field and report tests, eight-station offline sync tests, actual DOM form serialization and printable content, and isolated PostgreSQL migration/RPC tests for new station persistence, unit preservation, stock authorization, stale/duplicate updates, audit and RLS. Browser checks use fictional data and fixture storage. Physical iOS/Android keyboard and printer behavior are not covered by desktop preview tests.
 
 ## Guest records, phone completion and team reminders · 1.3.3
 
