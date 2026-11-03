@@ -18,6 +18,8 @@ begin
  perform wellness_apply(vol,op||jsonb_build_object('id',gen_random_uuid(),'station','glasses','data',jsonb_build_object('status','Not dispensed','grade','','quantity','0')));
  if (select count(*) from wellness_records where event_id=eid)<>4 then raise exception 'New stations were not persisted';end if;
  if (select data->>'cholesterolUnit' from wellness_records where event_id=eid and station='assessment')<>'mmol/L' then raise exception 'Units were lost';end if;
+ perform wellness_apply(vol,op||jsonb_build_object('id',gen_random_uuid(),'station','consultation','data',jsonb_build_object('followup_date','2026-11-05')));
+ if not exists(select 1 from wellness_records where event_id=eid and station='consultation' and data->>'followup_date'='2026-11-05') then raise exception 'Date-only follow-up was not stored';end if;
  a:=jsonb_build_object('id',item_id,'kind','supply','event_id',eid,'data',jsonb_build_object('item','glucose_strips','location_id','day:'||eid,'quantity','20','note','Fictional count'));
  b:=wellness_admin_save(owner_id,'resource',a);
  failed:=false;begin perform wellness_admin_save(vol,'resource',a);exception when others then failed:=true;end;if not failed then raise exception 'Volunteer changed stock';end if;

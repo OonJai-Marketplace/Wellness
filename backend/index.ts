@@ -1,3 +1,4 @@
+import {searchCatalogPage} from './search.ts';
 import {phoneReport,syncOverview,createReminder,readReminders,acknowledgeReminder} from './sync.ts';
 import {accessSince,canSeeEvent,canSeeRecord} from './access.js';
 import {createPeople} from './team.ts';
@@ -122,6 +123,7 @@ Deno.serve(async(req)=>{
   if(!isAdmin){if(!canEvent(event)||manage)fail('This day is outside your access, or requires an administrator.');}
   return event;
  };
+ if(b.action==='search-catalog')return new Response(JSON.stringify(await searchCatalogPage(admin,m,memberships,b)),{headers});
  if(b.action==='record-library'){
   if(b.mission_id&&!uuid(b.mission_id))fail('Choose an event.');
   const ids=memberships.map((x:any)=>x.mission_id);

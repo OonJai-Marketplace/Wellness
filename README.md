@@ -155,3 +155,7 @@ Wellness moved from the initially configured Accounting project to Restaurant in
 Password resets for real accounts are performed through Supabase Auth administration and are never stored in repository files. No software can be guaranteed bug-free; physical-phone notification delivery and verification/recovery email delivery still require operational testing.
 
 Recovery verification: a disposable confirmed account completed a real Supabase recovery-token exchange, Wellness password update and fresh sign-in. Supabase accepted the Wellness redirect. No real-user password was changed during that test, and the disposable account was deleted. Browser tests also cover the recovery-link callback and new-password form.
+
+## Search, saving and follow-ups (1.5.0)
+
+Universal search is available throughout the app. Follow-up dates appear automatically in Appointments, and the floating notification panel shows upcoming care and save/sync notices. Guest forms save to encrypted device storage before background database synchronization; the receipt distinguishes the two states. See [behavior and validation](docs/search-saving-notifications-2026-11-03.md).

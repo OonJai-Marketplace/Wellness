@@ -10,7 +10,7 @@ assert(strongPassword('Temporary!Test2026'));assert(!strongPassword('volunteer@e
 console.log('PASS: 10,000 unique guest IDs, checksums, BMI, out-of-order projection, conflicts, field validation, password policy');
 const {aggregateDays,pendingDays}=await import('../core.js');
 assert.equal(validateData('glasses',{status:'Assessed only',quantity:'0'}).quantity,'0');
-assert.throws(()=>validateData('assessment',{sugarUnit:'mg/dL',referral:'No'}));
+assert.throws(()=>validateData('assessment',{sugarUnit:'mg/dL'}));assert.equal(validateData('assessment',{referral:'No'}).referral,'No');
 assert.equal(summarize([r,{...r,event_id:'other'}]).visits,2);
 const metrics=summarize([r]);const days=[{id:'a',mission_id:'m',starts:'2027-03-22',location:'A',metrics},{id:'b',mission_id:'m',starts:'2027-03-23',location:'A',metrics},{id:'c',mission_id:'other',starts:'2027-03-22',location:'B',metrics}];
 assert.equal(aggregateDays(days,{mission:'m',from:'2027-03-23'}).total.registrations,1);assert.equal(aggregateDays(days,{location:'A'}).total.visits,2);assert.equal(aggregateDays(days,{from:'2027-03-23',to:'2027-03-22'}).days.length,0);

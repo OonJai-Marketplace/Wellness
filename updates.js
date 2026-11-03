@@ -12,7 +12,7 @@
  document.body.append(notice);
  const label=notice.querySelector('span'),button=notice.querySelector('button');
  const status=message=>{const target=document.getElementById('updateStatus');if(target)target.textContent=message;};
- const display=()=>{label.textContent='Wellness '+pendingVersion+' is ready.';notice.hidden=false;status('An update is ready. Save your changes, then choose Update now.');};
+ const display=()=>{label.textContent='Wellness '+pendingVersion+' is ready.';notice.hidden=false;if(window.dispatchEvent&&typeof CustomEvent!=='undefined')window.dispatchEvent(new CustomEvent('wellness-update'));status('An update is ready. Save your changes, then choose Update now.');};
  const clear=()=>{pendingVersion=null;notice.hidden=true;status('You have the latest app version ('+VERSION+').');};
  async function check(manual=false){
   if(checking||updating)return;checking=true;
@@ -50,7 +50,7 @@
   }catch{notice.hidden=false;label.textContent='Update is not ready yet. Please try again.';status('Unable to finish the update. Your saved records are safe.');}
   finally{updating=false;button.disabled=false;button.textContent='Update now';}
  };
- window.wellnessUpdates={check,version:VERSION};
+ window.wellnessUpdates={check,version:VERSION,get pendingVersion(){return pendingVersion;}};
  document.addEventListener('click',event=>{if(event.target.closest('[data-action="checkupdates"]'))check(true);});
  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')check();});
  window.addEventListener('online',()=>check());
