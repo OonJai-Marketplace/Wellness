@@ -165,7 +165,7 @@ function groupedGuestSections(row,{interactive=false,guestID='',print=false,hide
   const groups=section.groups.map(group=>{
    const record=row[group.station],data=record?.data||{};
    const values=group.fields.map(key=>[key,key==='bmi'?bmi(data):data[key]]).filter(([,value])=>value!==''&&value!=null);
-   if(!values.length&&(hideMissing||group.title==='Earlier assessment details'||group.title==='Additional screening notes'))return '';
+   if(!values.length&&((hideMissing&&!data.record_status)||group.title==='Earlier assessment details'||group.title==='Additional screening notes'))return '';
    return `<div class="guest-subsection" data-station="${group.station}">${group.title?`<h4>${esc(group.title)}</h4>`:''}${values.length?`<dl class="summary-grid">${values.map(([key,value])=>`<dt>${esc(fieldLabel(key))}</dt><dd>${esc(key==='status'&&value==='Provided'?'Dispensed':value)}</dd>`).join('')}</dl>`:'<p class="subtext">Not recorded</p>'}</div>`;
   }).join('');
   if(hideMissing&&!groups)return '';

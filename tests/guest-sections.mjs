@@ -34,4 +34,5 @@ assert.match(section(3),/A0001\|intake\|3/);assert.match(section(5),/A0001\|asse
 row.intake.pending=true;assert(!ctx.groupedGuestSections(row,{interactive:true,guestID:'A0001'}).includes('A0001|intake|'));
 const printed=ctx.groupedGuestSections(row,{print:true});assert(!printed.includes('<button'));assert.match(printed,/data-guest-section="10"/);
 const history=ctx.groupedGuestSections({assessment:row.assessment},{hideMissing:true});assert(!history.includes('data-guest-section="1"'));assert.match(history,/data-guest-section="5"/);assert.match(history,/data-guest-section="6"/);
+const statusOnly=ctx.groupedGuestSections({measurements:{station:'measurements',data:{record_status:'Not required'}}},{hideMissing:true});assert.match(statusOnly,/data-guest-section="5"/);assert.match(statusOnly,/Not required/);
 console.log('PASS: ordered guest sections, field retention, medical/family/symptom/lifestyle separation, combined measurements/vitals, blood subgroups, legacy data, escaped values, section actions, pending protections and print/history groups.');
